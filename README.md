@@ -2,6 +2,8 @@
 
 Turn any topic, doc, codebase, or URL into a crisp 1-minute explainer video with custom visuals, web media, voiceover, captions, and music using Claude, ChatGPT, Gemini, or your favorite agent.
 
+https://github.com/user-attachments/assets/88434963-75b2-446b-af20-1aa25ec08f70
+
 ## Problem
 
 Great explainer videos make hard ideas click in 60 seconds, but building one by hand in After Effects or Blender takes days. And when you ask AI to help, most tools spit out static slide decks or garbled text, and giving frame-accurate feedback in chat is painful.
