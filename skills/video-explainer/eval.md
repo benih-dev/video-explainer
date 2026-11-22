@@ -1,4 +1,4 @@
-# Explainer Video checks
+# Video Explainer checks
 
 Answer each check yes or no before delivering the final video. Fix any no first.
 

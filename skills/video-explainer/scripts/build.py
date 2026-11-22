@@ -10,7 +10,7 @@ from sfx import resolve_cue_time, synth_ambient_score, synth_cue
 
 SR = 48000
 THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"
-THREE_CACHE = os.path.expanduser("~/.cache/explainer-video/vendor/three.min.js")
+THREE_CACHE = os.path.expanduser("~/.cache/video-explainer/vendor/three.min.js")
 EASE = "(3*pow(min(t/{d},1),2)-2*pow(min(t/{d},1),3))"   # smoothstep for page drift
 
 

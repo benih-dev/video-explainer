@@ -1,4 +1,4 @@
-"""Fetch and normalize web or local images and video clips for /explainer-video projects.
+"""Fetch and normalize web or local images and video clips for /video-explainer projects.
 usage:
   media.py image <URL_OR_WIKIMEDIA_QUERY_OR_PATH> <OUT_PATH> [--credit "..."]
   media.py clip  <URL_OR_LOCAL_VIDEO> <OUT_MP4> [--start 0] [--duration 6] [--credit "..."] [--keep-audio]"""
@@ -10,7 +10,7 @@ BROWSER_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
-WIKI_UA = "ExplainerVideoSkill/1.0 (https://github.com/petergyang/explainer-video; local-media-helper)"
+WIKI_UA = "VideoExplainerSkill/1.0 (https://github.com/petergyang/video-explainer; local-media-helper)"
 SKIP_WIKI_EXTS = (".pdf", ".djvu", ".ogg", ".ogv", ".oga", ".webm", ".wav", ".mp3", ".flac", ".mid", ".stl")
 DIRECT_VIDEO_EXTS = (".mp4", ".webm", ".mov", ".m4v", ".mkv", ".ogv")
 CHALLENGE_MARKERS = ("cf-chl", "cloudflare", "turnstile", "g-recaptcha", "hcaptcha", "verify you are human", "captcha")
@@ -388,7 +388,7 @@ def cmd_clip(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Fetch and normalize images and clips for /explainer-video.")
+    ap = argparse.ArgumentParser(description="Fetch and normalize images and clips for /video-explainer.")
     sub = ap.add_subparsers(dest="subcmd", required=True)
 
     p_img = sub.add_parser("image", help="Download or normalize an image (URL, wikimedia:<query>, or local path)")

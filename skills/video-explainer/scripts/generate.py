@@ -1,5 +1,5 @@
 """Optional: generate an instrumental music bed with Lyria via the Gemini API.
-Needs GEMINI_API_KEY with billing enabled, from the environment or ~/.config/explainer-video/.env.
+Needs GEMINI_API_KEY with billing enabled, from the environment or ~/.config/video-explainer/.env.
 usage: generate.py music OUT.mp3 --prompt "warm minimal synth pulse, soft marimba" [--seconds 60] [--model ...]"""
 import argparse, base64, json, os, sys, urllib.error, urllib.request
 

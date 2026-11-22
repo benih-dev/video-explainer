@@ -1,4 +1,4 @@
-/* Reusable Single-Take Three.js Cinema Rig for /explainer-video (Mode: 3d)
+/* Reusable Single-Take Three.js Cinema Rig for /video-explainer (Mode: 3d)
  * Requires window.THREE (three@0.149.0, auto-injected by build.py when Mode: 3d or Studio3D is used).
  * Provides:
  *   - Deterministic hf-seek rendering via ExplainerStage (preserveDrawingBuffer: true, zero async loaders)

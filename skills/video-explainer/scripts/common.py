@@ -71,11 +71,11 @@ AUDIENCE_ALIASES = {
 DEFAULT_MAX_DURATION = 120.0
 PRESET_STYLES = ("default", "paper", "blueprint")
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SETTINGS_ENV = os.path.expanduser("~/.config/explainer-video/.env")
+SETTINGS_ENV = os.path.expanduser("~/.config/video-explainer/.env")
 
 
 def settings_key():
-    """Read Gemini API key from env or ~/.config/explainer-video/.env so it never enters chat."""
+    """Read Gemini API key from env or ~/.config/video-explainer/.env so it never enters chat."""
     for var in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
         if os.environ.get(var):
             return os.environ[var].strip()
@@ -206,10 +206,10 @@ def _load_style_layer(path):
 
 
 def load_style(project, style_arg=None, script_style=None):
-    """Merge style layers: default.json <- ~/.config/explainer-video/style.json <- Style: <- <project>/style.json <- --style."""
+    """Merge style layers: default.json <- ~/.config/video-explainer/style.json <- Style: <- <project>/style.json <- --style."""
     default_path = os.path.join(SKILL_DIR, "styles", "default.json")
     layers = [default_path]
-    user_global = os.path.expanduser("~/.config/explainer-video/style.json")
+    user_global = os.path.expanduser("~/.config/video-explainer/style.json")
     if os.path.isfile(user_global):
         layers.append(user_global)
     if script_style:

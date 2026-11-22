@@ -1,4 +1,4 @@
-/* Reusable Continuous Motion-Graphics Engine for /explainer-video
+/* Reusable Continuous Motion-Graphics Engine for /video-explainer
  * Provides:
  *   - Deterministic GSAP timeline + HyperFrames hf-seek synchronization
  *   - Continuous handheld/cinematic camera drift (sway, breathing scale, micro-rotation)

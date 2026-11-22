@@ -1,15 +1,15 @@
 ---
-name: explainer-video
+name: video-explainer
 description: "Turn any topic, article, codebase, or URL into a ~1-minute explainer video (60 to 75s target, 2-minute max) in Motion (default), Illustrated, or 3D style with web media, optional voiceover, synchronized captions, and a frame-pinned browser review page. Use when someone wants an animated explainer video."
 ---
 
-# Explainer Video
+# Video Explainer
 
 Input: a topic, article, codebase, or rough notes. Output: a single `renders/<slug>-vN.mp4` at 1920x1080 (`16:9`) and 30 fps (or `9:16` / `1:1` when requested), plus the `script.md`, `media/`, and `graphics/` files that produced it (pass `--share` to `render.py` only when a smaller 720p copy in `renders/share/` is requested).
 
 You write the script, narration, and scene code; the scripts fetch media, synthesize voice, align words, compile HyperFrames, render MP4, run 10-check QA, and serve the review page. Commands, `script.md` syntax, engine APIs, and `style.json` keys live in [reference.md](reference.md).
 
-On first use, run `setup.sh` (or `setup.sh --voice` when using spoken narration). If tools are missing, list them and ask before installing. Put optional `GEMINI_API_KEY=...` in `~/.config/explainer-video/.env` rather than chat.
+On first use, run `setup.sh` (or `setup.sh --voice` when using spoken narration). If tools are missing, list them and ask before installing. Put optional `GEMINI_API_KEY=...` in `~/.config/video-explainer/.env` rather than chat.
 
 ## 1. Pick a visual mode
 
@@ -59,4 +59,4 @@ Keep token use lean while hitting a high visual bar:
 1. **Token-light pre-flight:** Run `render.py "$P" --preview` (~3s) and inspect the single tiled `work/preview/contact.jpg` first to catch framing, contrast, or whiteout bugs. Open individual `work/preview/frame-*.png` files only when diagnosing a specific beat.
 2. **Draft and QA:** Run `render.py "$P" --draft` and `qa.py "$P"`. Fix any failed check (`10/10` required) and inspect `work/qa/contact.jpg` and `work/qa/opening.jpg` (plus `work/qa/cuts/*.jpg` only around suspect transitions).
 3. **Browser review loop:** Start `review.py "$P"` in a background shell, share its URL, and run `review.py --poll "$P/work"` in the foreground. Apply feedback, re-run `narrate.py` only if spoken words changed, render `--draft`, refresh with `review.py "$P" --no-open`, run `review.py --ack "$P/work" BATCH_ID`, and poll again until approved.
-4. **Final delivery:** Run `render.py "$P"` and `qa.py "$P"`, verify [eval.md](eval.md), ask the user to check voice pacing and mix balance, and report the final `.mp4` path, duration, and loudness. Offer to save custom theme/caption tweaks to `~/.config/explainer-video/style.json`.
+4. **Final delivery:** Run `render.py "$P"` and `qa.py "$P"`, verify [eval.md](eval.md), ask the user to check voice pacing and mix balance, and report the final `.mp4` path, duration, and loudness. Offer to save custom theme/caption tweaks to `~/.config/video-explainer/style.json`.

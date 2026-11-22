@@ -1,7 +1,7 @@
 #!/bin/bash
-# Run an explainer-video script in its own venv (numpy).
-# Override the location with EXPLAINER_VIDEO_VENV.
-V="${EXPLAINER_VIDEO_VENV:-$HOME/.cache/explainer-video/venv}"
+# Run an video-explainer script in its own venv (numpy).
+# Override the location with VIDEO_EXPLAINER_VENV.
+V="${VIDEO_EXPLAINER_VENV:-$HOME/.cache/video-explainer/venv}"
 if [ ! -x "$V/bin/python" ]; then
   if command -v uv >/dev/null; then uv venv -q -p 3.12 "$V" || exit 1
   else python3 -m venv "$V" || exit 1; fi

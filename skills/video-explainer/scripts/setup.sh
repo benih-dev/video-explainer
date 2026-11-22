@@ -1,5 +1,5 @@
 #!/bin/bash
-# Check what Explainer Video needs and prepare it. Prints each missing tool with its install command and exits 1,
+# Check what Video Explainer needs and prepare it. Prints each missing tool with its install command and exits 1,
 # so the agent can ask the user before installing.
 # By default installs headless Chrome only (~390 MB) so Voice: none works right away.
 # Pass --voice to also prepare Parakeet alignment + Kokoro-82M local TTS in the skill's isolated venv.
@@ -32,7 +32,7 @@ quiet() { "$@" >"$LOG" 2>&1 || { tail -c 1500 "$LOG"; return 1; }; }
 
 quiet npx -y "$HF" browser ensure || { echo "HyperFrames could not download its Chrome"; exit 1; }
 
-THREE_CACHE="$HOME/.cache/explainer-video/vendor/three.min.js"
+THREE_CACHE="$HOME/.cache/video-explainer/vendor/three.min.js"
 if [ ! -f "$THREE_CACHE" ] && command -v curl >/dev/null; then
   mkdir -p "$(dirname "$THREE_CACHE")"
   curl -fsSL "https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js" -o "$THREE_CACHE" 2>/dev/null || rm -f "$THREE_CACHE"

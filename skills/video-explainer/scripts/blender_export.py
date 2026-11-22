@@ -1,4 +1,4 @@
-"""Reusable Headless Blender Mesh & Fracture Exporter for /explainer-video (Mode: 3d).
+"""Reusable Headless Blender Mesh & Fracture Exporter for /video-explainer (Mode: 3d).
 Run inside Blender:
   blender -b -P my_meshes.py
 where my_meshes.py imports blender_export (via sys.path.append(SCRIPTS_DIR)) and calls

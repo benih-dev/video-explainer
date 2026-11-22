@@ -1,9 +1,9 @@
-"""Unit and end-to-end integration tests for /explainer-video."""
+"""Unit and end-to-end integration tests for /video-explainer."""
 import json, os, subprocess, sys, tempfile, unittest
 from unittest import mock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPTS_DIR = os.path.join(REPO_ROOT, "skills", "explainer-video", "scripts")
+SCRIPTS_DIR = os.path.join(REPO_ROOT, "skills", "video-explainer", "scripts")
 sys.path.insert(0, SCRIPTS_DIR)
 
 import common
@@ -295,8 +295,8 @@ Captions: off
         self.assertEqual(bed.shape, (3 * sfx.SR, 2))
 
     def test_stage_js_exports_drift_and_stage_css_classes(self):
-        stage_js_path = os.path.join(REPO_ROOT, "skills", "explainer-video", "assets", "stage.js")
-        stage_css = read_text(os.path.join(REPO_ROOT, "skills", "explainer-video", "assets", "stage.css"))
+        stage_js_path = os.path.join(REPO_ROOT, "skills", "video-explainer", "assets", "stage.js")
+        stage_css = read_text(os.path.join(REPO_ROOT, "skills", "video-explainer", "assets", "stage.css"))
         for cls in (".st-kinetic", ".st-clipping", ".st-highlight", ".st-stamp", ".st-3d-rig", ".st-3d-layer", ".st-phone-shell"):
             self.assertIn(cls, stage_css, f"Missing {cls} in stage.css")
 
@@ -823,16 +823,16 @@ Sound effects: subtle
         for rel in (
             "README.md",
             "agents/openai.yaml",
-            "skills/explainer-video/agents/openai.yaml",
-            "skills/explainer-video/SKILL.md",
-            "skills/explainer-video/reference.md",
-            "skills/explainer-video/eval.md",
+            "skills/video-explainer/agents/openai.yaml",
+            "skills/video-explainer/SKILL.md",
+            "skills/video-explainer/reference.md",
+            "skills/video-explainer/eval.md",
         ):
             content = read_text(os.path.join(REPO_ROOT, rel))
             self.assertNotIn("\u2014", content, f"Found em dash in {rel}")
         self.assertEqual(
             read_text(os.path.join(REPO_ROOT, "agents", "openai.yaml")),
-            read_text(os.path.join(REPO_ROOT, "skills", "explainer-video", "agents", "openai.yaml")),
+            read_text(os.path.join(REPO_ROOT, "skills", "video-explainer", "agents", "openai.yaml")),
         )
 
 

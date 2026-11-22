@@ -1,4 +1,4 @@
-# Explainer Video
+# Video Explainer
 
 Turn any topic, doc, codebase, or URL into a crisp 1-minute explainer video with custom visuals, web media, voiceover, captions, and music using Claude, ChatGPT, Gemini, or your favorite agent.
 
@@ -8,9 +8,9 @@ https://github.com/user-attachments/assets/88434963-75b2-446b-af20-1aa25ec08f70
 
 Great explainer videos make hard ideas click in 60 seconds, but building one by hand in After Effects or Blender takes days. And when you ask AI to help, most tools spit out static slide decks or garbled text, and giving frame-accurate feedback in chat is painful.
 
-## What explainer video can do
+## What video explainer can do
 
-/explainer-video makes it easy to iterate with AI to create custom, code-driven explainers (~60 to 75 seconds by default, written in plain English for a smart non-engineer). The best part of the skill is it gives you a review page to pin feedback on any frame until the video feels right.
+/video-explainer makes it easy to iterate with AI to create custom, code-driven explainers (~60 to 75 seconds by default, written in plain English for a smart non-engineer). The best part of the skill is it gives you a review page to pin feedback on any frame until the video feels right.
 
 The skill supports making explainers in 3 visual styles:
 
@@ -25,18 +25,18 @@ It can also add the following automatically:
 - **Voiceover (optional)** generated free on your computer with Kokoro, in the cloud with Gemini TTS, or skipped for music-only videos.
 - **Music and sound effects** synthesized locally and synced to key words, or generated with Gemini Lyria using a [Gemini API key](https://aistudio.google.com/?utm_source=peteryang&utm_medium=partner&utm_campaign=26Q3-peteryang_ais) with billing enabled.
 
-## How to install explainer video
+## How to install video explainer
 
 To install the skill, just paste this into Claude Code, ChatGPT Desktop, or your favorite agent:
 
 ```text
-Install the /explainer-video skill globally from https://github.com/petergyang/explainer-video
+Install the /video-explainer skill globally from https://github.com/petergyang/video-explainer
 ```
 
 You can also install it with `npx`:
 
 ```sh
-npx skills add petergyang/explainer-video --skill explainer-video --global --yes
+npx skills add petergyang/video-explainer --skill video-explainer --global --yes
 ```
 
 The first time you run the skill, it'll check if you have the following installed and offer to install what's missing. Plan for around 400 MB of disk space (or ~1.4 GB if you enable local voiceover):
@@ -45,9 +45,9 @@ The first time you run the skill, it'll check if you have the following installe
 - **[Python](https://www.python.org) 3.10 or newer** to run the pipeline scripts.
 - **[Node.js](https://nodejs.org) 22 or newer** for [HyperFrames](https://github.com/heygen-com/hyperframes), the free, open-source tool that renders HTML, Canvas, and WebGL into 1080p video and aligns speech on your computer with the [Parakeet](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) model.
 - **Optional: [yt-dlp](https://github.com/yt-dlp/yt-dlp)** to pull web video clips, and **[Blender](https://www.blender.org)** to sculpt or fracture custom 3D meshes.
-- **Optional: A Gemini API key** with billing enabled, to generate expressive voiceover with Gemini TTS and music with Lyria. Get a key at [Google AI Studio](https://aistudio.google.com/?utm_source=peteryang&utm_medium=partner&utm_campaign=26Q3-peteryang_ais) and set `GEMINI_API_KEY` in `~/.config/explainer-video/.env`.
+- **Optional: A Gemini API key** with billing enabled, to generate expressive voiceover with Gemini TTS and music with Lyria. Get a key at [Google AI Studio](https://aistudio.google.com/?utm_source=peteryang&utm_medium=partner&utm_campaign=26Q3-peteryang_ais) and set `GEMINI_API_KEY` in `~/.config/video-explainer/.env`.
 
-## How to use explainer video
+## How to use video explainer
 
 I've made this skill as simple as possible to use, just follow these 4 steps:
 
@@ -55,7 +55,7 @@ I've made this skill as simple as possible to use, just follow these 4 steps:
 2. **Prompt.** Give the skill any topic, doc, codebase, or URL:
 
    ```text
-   /explainer-video explain how black holes form
+   /video-explainer explain how black holes form
    ```
 
 3. **Pick a style.** Choose **Motion** (default), **Illustrated**, or **3D**, and optionally ask for ELI5, technical depth, silent mode, or vertical `9:16`. Your agent verifies the facts, writes the script, generates voiceover and visuals, and runs 10 automated QA checks.
@@ -65,15 +65,15 @@ Each draft saves a single 1080p MP4 and keeps only the version before it, so you
 
 ## Make it yours
 
-Fonts, colors, themes (`default`, `paper`, `blueprint`), and caption style come from a small `style.json`. Save yours at `~/.config/explainer-video/style.json` and every explainer uses it. The keys are in [`reference.md`](skills/explainer-video/reference.md).
+Fonts, colors, themes (`default`, `paper`, `blueprint`), and caption style come from a small `style.json`. Save yours at `~/.config/video-explainer/style.json` and every explainer uses it. The keys are in [`reference.md`](skills/video-explainer/reference.md).
 
 ## What's inside
 
-- [`SKILL.md`](skills/explainer-video/SKILL.md) contains the workflow and visual craft rules.
-- [`reference.md`](skills/explainer-video/reference.md) contains the commands, the `script.md` format, the 3 visual engines, and style options.
-- [`eval.md`](skills/explainer-video/eval.md) contains the checks the skill runs before handing back a video.
-- [`assets/`](skills/explainer-video/assets) contains the built-in engines for Motion (`stage.js`, `stage.css`), Illustrated (`illustrated.js`), and 3D (`studio3d.js`).
-- [`scripts/`](skills/explainer-video/scripts) contains the scripts for setup, media fetching, voiceover, sound design, Blender export, rendering, the review page, and QA.
+- [`SKILL.md`](skills/video-explainer/SKILL.md) contains the workflow and visual craft rules.
+- [`reference.md`](skills/video-explainer/reference.md) contains the commands, the `script.md` format, the 3 visual engines, and style options.
+- [`eval.md`](skills/video-explainer/eval.md) contains the checks the skill runs before handing back a video.
+- [`assets/`](skills/video-explainer/assets) contains the built-in engines for Motion (`stage.js`, `stage.css`), Illustrated (`illustrated.js`), and 3D (`studio3d.js`).
+- [`scripts/`](skills/video-explainer/scripts) contains the scripts for setup, media fetching, voiceover, sound design, Blender export, rendering, the review page, and QA.
 
 ## Want more great AI skills?
 
@@ -83,4 +83,4 @@ Subscribe to my [YouTube channel](https://www.youtube.com/@PeterYangYT?sub_confi
 
 ## License
 
-MIT. The bundled Inter font is under the [SIL Open Font License](skills/explainer-video/fonts/OFL.txt).
+MIT. The bundled Inter font is under the [SIL Open Font License](skills/video-explainer/fonts/OFL.txt).

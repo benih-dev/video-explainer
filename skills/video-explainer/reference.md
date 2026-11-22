@@ -1,9 +1,9 @@
-# Explainer Video reference
+# Video Explainer reference
 
-Set `S` to this skill's `scripts` folder and `P` to the project folder. Run Python scripts through `$S/py`, which manages an isolated venv at `~/.cache/explainer-video/venv`. HyperFrames runs via `npx`, pinned to `0.8.169`.
+Set `S` to this skill's `scripts` folder and `P` to the project folder. Run Python scripts through `$S/py`, which manages an isolated venv at `~/.cache/video-explainer/venv`. HyperFrames runs via `npx`, pinned to `0.8.169`.
 
 ```bash
-S=/path/to/explainer-video/skills/explainer-video/scripts
+S=/path/to/video-explainer/skills/video-explainer/scripts
 P=~/Videos/explainers/how-https-works
 mkdir -p "$P/graphics" "$P/media" "$P/captures"
 ```
@@ -23,7 +23,7 @@ $S/py $S/media.py image "https://example.com/diagram.png" "$P/media/diagram.png"
 $S/py $S/media.py clip "https://example.com/demo.mp4" "$P/media/demo.mp4" --start 2 --duration 6 --credit "Demo"
 $S/py $S/capture.py "https://example.com/docs" "$P/captures/docs.png"
 
-# 2. Optional Lyria music bed (needs GEMINI_API_KEY in env or ~/.config/explainer-video/.env)
+# 2. Optional Lyria music bed (needs GEMINI_API_KEY in env or ~/.config/video-explainer/.env)
 $S/py $S/generate.py music "$P/music.mp3" --prompt "warm minimal synth pulse, soft marimba, 104 bpm" --seconds 75
 
 # 3. Narrate and align (writes work/narration.wav, work/words.json, work/transcript.md, syncs script.md)
@@ -239,7 +239,7 @@ Auto-injected when `Mode: 3d` or `Studio3D` / `THREE.` appears in `graphics/*.ht
 
 ## `style.json` and themes
 
-Built-in presets: `default`, `paper`, and `blueprint`. Lookup order: `--style` -> `<project>/style.json` -> `Style:` in `script.md` -> `~/.config/explainer-video/style.json` -> `styles/default.json`.
+Built-in presets: `default`, `paper`, and `blueprint`. Lookup order: `--style` -> `<project>/style.json` -> `Style:` in `script.md` -> `~/.config/video-explainer/style.json` -> `styles/default.json`.
 
 ```json
 {

@@ -1,4 +1,4 @@
-/* Reusable Picture-Book Illustration & Animation Engine for /explainer-video (Mode: illustrated)
+/* Reusable Picture-Book Illustration & Animation Engine for /video-explainer (Mode: illustrated)
  * Exports:
  *   - window.StoryBrush: deterministic 2D noise, offscreen sprite/boil baker, cotton-rag paper tooth,
  *     opaque gouache fill, directional pastel/crayon fill, sinusoidal striped fabric ribbing,
