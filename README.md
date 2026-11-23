@@ -2,7 +2,7 @@
 
 Turn any topic, doc, codebase, or URL into a crisp 1-minute explainer video with custom visuals, web media, voiceover, captions, and music using Claude, ChatGPT, Gemini, or your favorite agent.
 
-https://github.com/user-attachments/assets/88434963-75b2-446b-af20-1aa25ec08f70
+https://github.com/user-attachments/assets/bdcc1496-7e1d-4956-844c-dab2d64c10b5
 
 ## Problem
 
