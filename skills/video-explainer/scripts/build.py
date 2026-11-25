@@ -780,7 +780,7 @@ def build(project, style_arg=None):
                 inner_cap.append(f'<span class="em">{seg}</span>' if j in marks else seg)
                 j = m
             caps.append(
-                f'<div id="cap{k}" class="clip cap" data-layout-allow-caption-zone data-start="{max(0.0, fa - 0.5) / FPS:.4f}" '
+                f'<div id="cap{k}" class="clip cap caption-cue" data-layout-allow-caption-zone data-start="{max(0.0, fa - 0.5) / FPS:.4f}" '
                 f'data-duration="{(fb - fa) / FPS:.4f}" data-track-index="100" style="top:{cap_y}px">'
                 f'<span class="band" data-layout-allow-caption-zone>{" ".join(inner_cap)}</span></div>'
             )
@@ -936,8 +936,8 @@ html, body {{ margin: 0; width: 100%; height: 100%; overflow: hidden; background
 .code-bar {{ display: flex; align-items: center; gap: 18px; padding: 18px 26px; background: var(--surface-2); border-bottom: 1px solid var(--border); }}
 .dots {{ display: flex; gap: 9px; }}
 .dots i {{ width: 14px; height: 14px; border-radius: 50%; background: var(--border); display: block; }}
-.code-fn {{ font: 600 24px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }}
-.code-body {{ padding: 28px 24px; display: flex; flex-direction: column; gap: 10px; font: 500 calc(30px * {scale})/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }}
+.code-fn {{ font: 600 24px/1 "JetBrains Mono", monospace; color: var(--muted); }}
+.code-body {{ padding: 28px 24px; display: flex; flex-direction: column; gap: 10px; font: 500 calc(30px * {scale})/1.45 "JetBrains Mono", monospace; }}
 .code-ln {{ display: flex; align-items: baseline; gap: 22px; padding: 10px 18px; border-radius: 10px; border-left: 4px solid transparent; }}
 .code-ln.hl {{ background: color-mix(in srgb, var(--accent) 16%, transparent); border-left-color: var(--accent); color: var(--text); }}
 .ln-no {{ color: var(--muted); opacity: .65; min-width: 34px; text-align: right; user-select: none; }}

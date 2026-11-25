@@ -13,19 +13,20 @@ for arg in "$@"; do
 done
 
 missing=0
-need() { command -v "$1" >/dev/null || { echo "missing: $1  (Mac: brew install $2)"; missing=1; }; }
-need ffmpeg ffmpeg
-need python3 python
-need node node
+if [ "$(uname)" = Darwin ]; then hint() { echo "brew install $1"; }; else hint() { echo "$2"; }; fi
+need() { command -v "$1" >/dev/null || { echo "missing: $1  (install: $(hint "$2" "$3"))"; missing=1; }; }
+need ffmpeg ffmpeg "sudo apt install ffmpeg"
+need python3 python "sudo apt install python3 python3-venv"
+need node node "Node 22+ from https://nodejs.org"
 if command -v node >/dev/null && [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 22 ]; then
-  echo "too old: node $(node -v), needs 22 or newer  (Mac: brew upgrade node)"; missing=1
+  echo "too old: node $(node -v), needs 22 or newer  (install: $(hint node "Node 22+ from https://nodejs.org"))"; missing=1
 fi
 [ "$missing" = 1 ] && exit 1
 
 "$DIR/py" -c "import numpy" || exit 1
 VENV_PY="$("$DIR/py" -c 'import sys; print(sys.executable)')"
 
-HF=hyperframes@0.8.169
+HF=hyperframes@0.9.79
 LOG="$(mktemp)"
 trap 'rm -f "$LOG"' EXIT
 quiet() { "$@" >"$LOG" 2>&1 || { tail -c 1500 "$LOG"; return 1; }; }

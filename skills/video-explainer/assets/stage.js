@@ -104,10 +104,6 @@
       rot: 0.22,
       speed: 1.0,
     };
-    if (opts.drift && typeof opts.drift === "object") {
-      setDrift(opts.drift);
-    }
-
     const tickCallbacks = [];
     const shakeEvents = [];
 
@@ -327,22 +323,10 @@
       const targets = global.gsap.utils.toArray(sel);
       targets.forEach(function (el, idx) {
         if (!el) return;
-        let bar = el;
-        if (!(el.classList && el.classList.contains("st-hl-bar"))) {
-          bar = el.querySelector ? el.querySelector(".st-hl-bar") : null;
-          if (!bar && el.ownerDocument && el.insertBefore) {
-            bar = el.ownerDocument.createElement("span");
-            bar.className = "st-hl-bar";
-            bar.setAttribute("aria-hidden", "true");
-            if (el.classList) el.classList.add("has-hl-bar");
-            el.insertBefore(bar, el.firstChild);
-          } else if (bar && el.classList) {
-            el.classList.add("has-hl-bar");
-          }
-        }
-        if (!bar) return;
-        global.gsap.set(bar, { scaleX: 0, transformOrigin: "0% 50%" });
-        tl.to(bar, { scaleX: 1, duration: d, ease: ease }, t + idx * 0.08);
+        const host = el.classList && el.classList.contains("st-hl-bar") ? el.parentElement : el;
+        if (!host) return;
+        global.gsap.set(host, { backgroundSize: "0% 100%" });
+        tl.to(host, { backgroundSize: "100% 100%", duration: d, ease: ease }, t + idx * 0.08);
       });
       return stage;
     }
@@ -1029,6 +1013,8 @@
       finalize,
     };
 
+    // Applied after `stage` exists, since setDrift returns it.
+    if (opts.drift && typeof opts.drift === "object") setDrift(opts.drift);
     return stage;
   }
 

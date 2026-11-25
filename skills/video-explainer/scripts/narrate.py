@@ -395,6 +395,10 @@ def main():
         full_words = align_words(paths["narration"])
         for idx, _, c_words in need_align:
             t0, t1, _ = scene_meta[idx]
+            # Scenes tile the WAV, so slice by half-open [t0, t1) windows; padding both ends gave a
+            # boundary word to two scenes. Only the outer ends of the WAV get slack.
+            lo = float("-inf") if idx == 0 else t0
+            hi = float("inf") if idx == len(scene_meta) - 1 else t1
             sliced = [
                 {
                     "text": w["text"],
@@ -402,7 +406,7 @@ def main():
                     "end": round(max(0.04, min(t1 - t0, w["end"] - t0)), 3),
                 }
                 for w in full_words
-                if t0 - 0.02 <= 0.5 * (w["start"] + w["end"]) < t1 + 0.02
+                if lo <= 0.5 * (w["start"] + w["end"]) < hi
             ]
             json.dump(sliced, open(c_words, "w", encoding="utf-8"), indent=1)
     elif len(need_align) == 1:
@@ -412,7 +416,10 @@ def main():
     all_words = []
     for t0, _, c_words in scene_meta:
         if c_words and os.path.isfile(c_words):
-            for w in json.load(open(c_words, encoding="utf-8")):
+            for k, w in enumerate(json.load(open(c_words, encoding="utf-8"))):
+                prev = all_words[-1] if all_words else None
+                if k == 0 and prev and prev["text"] == w["text"] and w["start"] + t0 - prev["end"] < 0.05:
+                    continue  # a boundary word cached in both adjacent scenes
                 all_words.append({
                     "text": w["text"],
                     "start": round(w["start"] + t0, 3),

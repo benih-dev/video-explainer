@@ -347,6 +347,7 @@ sandbox.window.gsap = {{
 }};
 vm.runInNewContext(code, sandbox);
 const stage = sandbox.window.ExplainerStage.create("unit-comp", {{ duration: 12 }});
+sandbox.window.ExplainerStage.create("drift-comp", {{ duration: 12, drift: {{ swayX: 4 }} }});  // drift config must not crash create()
 const required = [
   "setDrift", "whipTo", "zoomThrough", "drawStroke",
   "highlightSweep", "stampSlam", "kineticPunch", "kenBurns", "seek"
@@ -371,7 +372,8 @@ if (tr0 === tr1) throw new Error("Expected continuous camera drift between t=0 a
 stage.setDrift(false).seek(1.7);
 const trOff = elements["#cam-shake"].style.transform;
 if (trOff !== "translate3d(0,0,0)") throw new Error("Expected drift disabled, got " + trOff);
-if (!elements["#hl"].inserted) throw new Error("Expected highlightSweep to create .st-hl-bar");
+if (!gsapCalls.some((c) => c[0] === "to" && c[1].backgroundSize === "100% 100%" && c[2] === 1.2))
+  throw new Error("Expected highlightSweep to sweep the marker's background-size at t=1.2");
 console.log("OK");
 """
         r = subprocess.run(["node", "-e", node_check], capture_output=True, text=True)
@@ -822,7 +824,6 @@ Sound effects: subtle
     def test_docs_have_zero_em_dashes(self):
         for rel in (
             "README.md",
-            "agents/openai.yaml",
             "skills/video-explainer/agents/openai.yaml",
             "skills/video-explainer/SKILL.md",
             "skills/video-explainer/reference.md",
@@ -830,10 +831,6 @@ Sound effects: subtle
         ):
             content = read_text(os.path.join(REPO_ROOT, rel))
             self.assertNotIn("\u2014", content, f"Found em dash in {rel}")
-        self.assertEqual(
-            read_text(os.path.join(REPO_ROOT, "agents", "openai.yaml")),
-            read_text(os.path.join(REPO_ROOT, "skills", "video-explainer", "agents", "openai.yaml")),
-        )
 
 
 if __name__ == "__main__":

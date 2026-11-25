@@ -781,6 +781,8 @@
 
     const canvas = typeof canvasSel === "string" ? document.querySelector(canvasSel) : canvasSel;
     if (canvas) {
+      // The painted canvas is the whole film, so tell the layout audit a full-frame cover is intended.
+      canvas.setAttribute("data-layout-allow-occlusion", "");
       canvas.width = W;
       canvas.height = H;
     }

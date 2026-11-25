@@ -1,6 +1,6 @@
 # Video Explainer reference
 
-Set `S` to this skill's `scripts` folder and `P` to the project folder. Run Python scripts through `$S/py`, which manages an isolated venv at `~/.cache/video-explainer/venv`. HyperFrames runs via `npx`, pinned to `0.8.169`.
+Set `S` to this skill's `scripts` folder and `P` to the project folder. Run Python scripts through `$S/py`, which manages an isolated venv at `~/.cache/video-explainer/venv`. HyperFrames runs via `npx`, pinned to `0.9.79`.
 
 ```bash
 S=/path/to/video-explainer/skills/video-explainer/scripts
@@ -119,7 +119,8 @@ Auto-injected into `graphics/*.html`: `stage.css`, `gsap@3.14.2`, `explainer-dat
 
 - **CSS kit (`stage.css`):** `.st-stage` (`paper`, `blueprint`), `.st-backdrop`, `.st-parallax`, `.st-cam-shake`, `.st-cam-pivot`, `.st-cam`, `.st-badge` (`gold`, `cyan`, `crimson`, `violet`, `green`, `paper`, `ink`), `.st-kinetic` (`sm`, `lg`, `xl`), `.st-clipping` (`.st-clipping-mast`, `.st-clipping-head`, `.st-clipping-sub`), `.st-highlight`, `.st-stamp`, `.st-media-card`, `.st-quote-card`, `.st-3d-rig`, `.st-3d-layer`, `.st-phone-shell`.
 - **Stage API (`stage.js`):**
-  - `ExplainerStage.create(compId, { duration, drift })`, `stage.setDrift(cfg)`, `stage.mountBackdrop("#backdrop", { preset: "cosmos" | "paper" | "blueprint", onDraw })`.
+  - `ExplainerStage.create(compId, { duration, drift })`, `stage.setDrift(cfg)`, `stage.mountBackdrop("#backdrop", { preset: "cosmos" | "paper" | "blueprint", onDraw: (ctx, t, camPose) => ... })` (`onDraw` paints extra layers after the preset).
+  - World coordinates: `(0, 0)` inside `#cam` sits at the frame's horizontal center and 46% down, so place art with negative and positive `left`/`top` around it, as in the example below.
   - Camera: `camInit({ x, y, scale, rot })`, `camTo(t, { x, y, scale, rot, dur, ease })`, `whipTo(t, cfg)`, `zoomThrough(t, { x, y, peakScale, dur, toX, toY, toScale })`, `shake(t, dur, amp)`.
   - Choreography: `drawStroke(sel, t, dur, ease)`, `highlightSweep(sel, t, dur)`, `stampSlam(sel, t, cfg)`, `kineticPunch(sel, t, cfg)`, `kenBurns(sel, t0, t1, cfg)`, `popIn(sel, t, cfg)`, `fadeOut(sel, t, dur)`, `implode(sel, t, cfg)`, `counter(sel, from, to, t, dur, fmt)`.
   - Timing & SVG: `scene("s02")`, `cue("s02", "phrase", 0.4)`, `scallopPath(...)`, `coronaFlares(...)`, `onTick((t, camPose) => ...)`, `finalize()`.
@@ -207,7 +208,7 @@ Auto-injected when `Mode: 3d` or `Studio3D` / `THREE.` appears in `graphics/*.ht
   - Configures `WebGLRenderer({ preserveDrawingBuffer: true, antialias: true })`, studio PMREM softbox reflections, lights, and HalfFloat bloom + ACES Filmic composer (`studio.bloom.params`: `threshold = 1.05`, `bloomStrength = 0.42`, `exposure = 1.0`).
   - Materials (`studio.materials`): `titaniumBrushed()`, `titaniumDark()`, `chromeMirror()`, `mattePlaque()`, `sapphireGlass()`, `vaultGold()`, `emeraldCore()`, `emissiveGlow(hex, intensity)`.
   - Camera & lifecycle: `studio.setCameraPath([{ t, pos: [x,y,z], target: [x,y,z], fov, roll }, ...])`, `studio.onTick((t, studio) => ...)`, `studio.finalize()`.
-  - Multi-act registry (single agent or `/swarm`): `Studio3D.registerAct("act1", [t0, t1], (studio) => ({ group, update(t), getCameraPose(t) }))` blends poses seamlessly across `handoffWindow` (`1.1s` default).
+  - Multi-act registry: `Studio3D.registerAct("act1", [t0, t1], (studio) => ({ group, update(t), getCameraPose(t) }))` blends poses seamlessly across `handoffWindow` (`1.1s` default).
   - Readable 3D callouts: `studio.makePlaque("3 MS SAVE", { width, bg, fg, border })` + `studio.faceCamera(mesh)` + `studio.clampAboveCaptions(mesh)` keeps HUD plaques nearly perpendicular to the lens and above the caption zone.
   - Synchronous meshes: `studio.loadAsset("heroMesh")` or `Studio3D.buildGeo(spec)` decodes base64 `Float32Array` / `Uint16Array` / `Uint32Array` specs from `window.STUDIO_ASSETS` (`<script src="../assets/media/studio_assets.js"></script>`).
 - **Optional headless Blender exporter (`$S/blender_export.py`):**

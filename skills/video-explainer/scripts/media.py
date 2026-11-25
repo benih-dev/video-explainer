@@ -106,31 +106,16 @@ def _download_bytes(url, dest_path, expect_media=True):
     die(f"could not download {url}: {last_err}")
 
 
-def search_wikimedia(query):
-    q = query.strip()
-    if not q:
-        die("wikimedia: search query cannot be empty")
-    params = urllib.parse.urlencode({
-        "action": "query",
-        "generator": "search",
-        "gsrnamespace": "6",
-        "gsrsearch": q,
-        "gsrlimit": "12",
-        "prop": "imageinfo",
-        "iiprop": "url|extmetadata|mime",
-        "iiurlwidth": "1600",
-        "format": "json",
-    })
-    api_url = f"https://commons.wikimedia.org/w/api.php?{params}"
-    req = urllib.request.Request(api_url, headers={"User-Agent": WIKI_UA})
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except Exception as err:
-        die(f"Wikimedia Commons search failed for '{q}': {err}")
+def _wiki_api(host, params):
+    req = urllib.request.Request(f"https://{host}/w/api.php?{urllib.parse.urlencode(params)}",
+                                 headers={"User-Agent": WIKI_UA})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
-    pages = sorted((payload.get("query") or {}).get("pages", {}).values(), key=lambda p: p.get("index", 999))
-    for page in pages:
+
+def _commons_hit(pages):
+    """First usable image among Commons API pages, as (url, credit, page_url), or None."""
+    for page in sorted(pages, key=lambda p: p.get("index", 999)):
         title = page.get("title", "")
         if title.lower().endswith(SKIP_WIKI_EXTS):
             continue
@@ -146,10 +131,53 @@ def search_wikimedia(query):
         lic = _strip_html((ext.get("LicenseShortName") or {}).get("value", ""))
         if len(artist) > 64:
             artist = artist[:61].rstrip() + "..."
-        parts = [p for p in (artist, lic, "Wikimedia Commons") if p]
-        credit = " / ".join(parts)
+        credit = " / ".join(p for p in (artist, lic, "Wikimedia Commons") if p)
         return img_url, credit, info.get("descriptionurl") or img_url
-    die(f"no Wikimedia Commons image found for '{q}'")
+    return None
+
+
+IMAGE_INFO = {"prop": "imageinfo", "iiprop": "url|extmetadata|mime", "iiurlwidth": "1600", "format": "json"}
+
+
+def _search_queries(q):
+    """The full query, then shorter versions dropping trailing words, down to two words."""
+    words = q.split()
+    return [" ".join(words[:n]) for n in range(len(words), min(2, len(words)) - 1, -1)]
+
+
+def search_wikimedia(query):
+    """Find a Commons image: search Commons with the query and shorter versions of it,
+    then fall back to the lead image of the best-matching Wikipedia article."""
+    q = query.strip()
+    if not q:
+        die("wikimedia: search query cannot be empty")
+    errors = []
+    for attempt in _search_queries(q):
+        try:
+            payload = _wiki_api("commons.wikimedia.org", {"action": "query", "generator": "search", "gsrnamespace": "6",
+                                                          "gsrsearch": attempt, "gsrlimit": "12", **IMAGE_INFO})
+        except Exception as err:
+            errors.append(str(err))
+            continue
+        hit = _commons_hit((payload.get("query") or {}).get("pages", {}).values())
+        if hit:
+            return hit
+    try:
+        payload = _wiki_api("en.wikipedia.org", {"action": "query", "generator": "search", "gsrsearch": q, "gsrlimit": "3",
+                                                 "prop": "pageimages", "piprop": "name", "format": "json"})
+        for page in sorted((payload.get("query") or {}).get("pages", {}).values(), key=lambda p: p.get("index", 999)):
+            name = page.get("pageimage")
+            if not name:
+                continue
+            info = _wiki_api("commons.wikimedia.org", {"action": "query", "titles": f"File:{name}", **IMAGE_INFO})
+            hit = _commons_hit((info.get("query") or {}).get("pages", {}).values())
+            if hit:
+                return hit
+    except Exception as err:
+        errors.append(str(err))
+    if len(errors) == len(_search_queries(q)) + 1:
+        die(f"Wikimedia Commons search failed for '{q}': {errors[-1]}")
+    die(f"no Wikimedia Commons image found for '{q}'. Try a shorter query, an official page with capture.py, or a direct image URL.")
 
 
 def search_wikimedia_video(query):

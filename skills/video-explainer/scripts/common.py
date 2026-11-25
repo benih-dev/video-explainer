@@ -5,13 +5,13 @@ import numpy as np
 from sfx import parse_sound_line
 
 FPS = 30
-HF_VERSION = "0.8.169"
+HF_VERSION = "0.9.79"
 HF = f"hyperframes@{HF_VERSION}"   # pinned so renders and alignments stay identical across machines
 _HF_BIN = None
 
 
 def hf_cmd(*args):
-    """Use the local cached hyperframes@0.8.169 binary directly (~10x faster than npx -y), falling back to npx."""
+    """Use the local cached hyperframes@0.9.79 binary directly (~10x faster than npx -y), falling back to npx."""
     global _HF_BIN
     if _HF_BIN is None:
         _HF_BIN = ""

@@ -5,7 +5,7 @@
  *   - Procedural studio softbox PMREM HDRI reflections + safe anti-whiteout ACES Filmic bloom composer
  *   - Synchronous base64 IEEE-754 Float32 / Uint16 / Uint32 BufferGeometry loader (window.STUDIO_ASSETS)
  *   - PBR material presets + HiDPI matte CanvasTexture plaques with <= 8 deg lens-facing & caption-safe clamping
- *   - Smooth C2 camera keyframe spline + multi-act handoff registry (works for 1 agent or /swarm @act1..3)
+ *   - Smooth C2 camera keyframe spline + multi-act handoff registry
  */
 (function (global) {
   "use strict";
@@ -276,6 +276,8 @@
     const duration = Number(opts.duration || data.duration || 60);
 
     const canvas = typeof canvasOrSel === "string" ? document.querySelector(canvasOrSel) : canvasOrSel;
+    // The WebGL canvas is the whole film, so tell the layout audit a full-frame cover is intended.
+    if (canvas && canvas.setAttribute) canvas.setAttribute("data-layout-allow-occlusion", "");
     const renderer = new THREE.WebGLRenderer({
       canvas: canvas,
       antialias: true,

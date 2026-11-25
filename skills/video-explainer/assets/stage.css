@@ -79,7 +79,7 @@
 /* Badges (WCAG AA/AAA across cosmos, paper, and blueprint) */
 .st-badge {
   position: absolute;
-  transform: translate(-50%, -50%);
+  translate: -50% -50%; /* separate from `transform`, so GSAP x/y/scale tweens keep the centering */
   padding: 11px 24px;
   border-radius: 999px;
   background: #0b1124;
@@ -447,84 +447,31 @@
   color: #27272a;
 }
 
-/* Marker Highlighter Sweep Wrapper (WCAG AA/AAA across dark cosmos, blueprint, paper, and clippings) */
+/* Marker highlighter sweep (WCAG AA/AAA across dark cosmos, blueprint, paper, and clippings).
+   The marker is a background gradient, so highlightSweep animates background-size and no z-index layering is needed. */
 .st-highlight {
+  --hl-fill: rgba(217, 119, 6, 0.44);
+  --hl-line: rgba(251, 191, 36, 0.65);
   position: relative;
   display: inline-block;
-  z-index: 0;
   padding: 0 6px;
   margin: 0 -2px;
-}
-
-.st-highlight::before,
-.st-highlight .st-hl-bar {
-  content: "";
-  position: absolute;
-  left: -3px;
-  right: -3px;
-  top: 7%;
-  bottom: 3%;
-  z-index: -1;
   border-radius: 4px;
-  pointer-events: none;
-  transform-origin: 0% 50%;
-  background: rgba(217, 119, 6, 0.44);
-  border-bottom: 2px solid rgba(251, 191, 36, 0.65);
+  background-image: linear-gradient(to bottom, transparent 7%, var(--hl-fill) 7%, var(--hl-fill) calc(97% - 2px),
+                                    var(--hl-line) calc(97% - 2px), var(--hl-line) 97%, transparent 97%);
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: 100% 100%;
 }
 
-.st-highlight.has-hl-bar::before {
-  display: none;
-}
-
-.st-highlight.crimson::before,
-.st-highlight.crimson .st-hl-bar {
-  background: rgba(225, 29, 72, 0.44);
-  border-bottom-color: rgba(251, 113, 133, 0.70);
-}
-
-.st-highlight.cyan::before,
-.st-highlight.cyan .st-hl-bar {
-  background: rgba(2, 132, 199, 0.46);
-  border-bottom-color: rgba(56, 189, 248, 0.70);
-}
-
-.st-highlight.green::before,
-.st-highlight.green .st-hl-bar {
-  background: rgba(22, 163, 74, 0.44);
-  border-bottom-color: rgba(74, 222, 128, 0.70);
-}
-
-.st-stage.paper .st-highlight::before,
-.st-stage.paper .st-highlight .st-hl-bar,
-.st-clipping .st-highlight::before,
-.st-clipping .st-highlight .st-hl-bar {
-  background: rgba(250, 204, 21, 0.52);
-  border-bottom-color: rgba(217, 119, 6, 0.55);
-}
-
-.st-stage.paper .st-highlight.crimson::before,
-.st-stage.paper .st-highlight.crimson .st-hl-bar,
-.st-clipping .st-highlight.crimson::before,
-.st-clipping .st-highlight.crimson .st-hl-bar {
-  background: rgba(251, 113, 133, 0.34);
-  border-bottom-color: rgba(225, 29, 72, 0.55);
-}
-
-.st-stage.paper .st-highlight.cyan::before,
-.st-stage.paper .st-highlight.cyan .st-hl-bar,
-.st-clipping .st-highlight.cyan::before,
-.st-clipping .st-highlight.cyan .st-hl-bar {
-  background: rgba(56, 189, 248, 0.32);
-  border-bottom-color: rgba(2, 132, 199, 0.55);
-}
-
-.st-stage.paper .st-highlight.green::before,
-.st-stage.paper .st-highlight.green .st-hl-bar,
-.st-clipping .st-highlight.green::before,
-.st-clipping .st-highlight.green .st-hl-bar {
-  background: rgba(74, 222, 128, 0.36);
-  border-bottom-color: rgba(22, 163, 74, 0.55);
-}
+.st-highlight .st-hl-bar { display: none; }
+.st-highlight.crimson { --hl-fill: rgba(225, 29, 72, 0.44); --hl-line: rgba(251, 113, 133, 0.70); }
+.st-highlight.cyan { --hl-fill: rgba(2, 132, 199, 0.46); --hl-line: rgba(56, 189, 248, 0.70); }
+.st-highlight.green { --hl-fill: rgba(22, 163, 74, 0.44); --hl-line: rgba(74, 222, 128, 0.70); }
+.st-stage.paper .st-highlight, .st-clipping .st-highlight { --hl-fill: rgba(250, 204, 21, 0.52); --hl-line: rgba(217, 119, 6, 0.55); }
+.st-stage.paper .st-highlight.crimson, .st-clipping .st-highlight.crimson { --hl-fill: rgba(251, 113, 133, 0.34); --hl-line: rgba(225, 29, 72, 0.55); }
+.st-stage.paper .st-highlight.cyan, .st-clipping .st-highlight.cyan { --hl-fill: rgba(56, 189, 248, 0.32); --hl-line: rgba(2, 132, 199, 0.55); }
+.st-stage.paper .st-highlight.green, .st-clipping .st-highlight.green { --hl-fill: rgba(74, 222, 128, 0.36); --hl-line: rgba(22, 163, 74, 0.55); }
 
 /* Rubber-Stamp Cutout Frame (crimson default, gold, green, cyan) */
 .st-stamp {

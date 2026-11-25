@@ -13,12 +13,13 @@ Answer each check yes or no before delivering the final video. Fix any no first.
 
 ## Visual craft and audio
 
-7. Does the render match the chosen `Mode` (`motion`, `illustrated`, or `3d`) with full-frame visuals (60 to 85% of viewport) that visibly transform every 2 to 3 seconds instead of static slide cards?
-8. Are all on-screen labels short (1 to 4 words), high-contrast, camera-facing in `3d`, and positioned above the bottom caption band?
-9. Were all downloaded or captured images and clips inspected for sharpness, attribution, and clean framing?
+7. Does the render match the chosen `Mode` (`motion`, `illustrated`, or `3d`) with full-frame visuals (60 to 85% of viewport) that visibly transform every 2 to 3 seconds?
+8. Did a fresh-eyes check of the contact sheet and opening find no slide-like frames, no clip-art look, and a striking first 15 seconds?
+9. Are all on-screen labels short (1 to 4 words), high-contrast, camera-facing in `3d`, and positioned above the bottom caption band?
+10. Were all downloaded or captured images and clips inspected for sharpness, attribution, and clean framing?
 
 ## QA and review
 
-10. Does `qa.py` pass all `10/10` checks (`duration_cap`, `motion_liveliness`, loudness, sync, black frames, and `hyperframes check` with `errors=0`)?
-11. Did you inspect `work/qa/contact.jpg` and `work/qa/opening.jpg` to confirm zero whiteouts, clipped text, broken media, or frozen stretches?
-12. Were all browser review notes applied and acknowledged before the final render, and did you ask the user to listen for voice pacing and music balance?
+11. Does `qa.py` pass all `10/10` checks (`duration_cap`, `motion_liveliness`, loudness, sync, black frames, and `hyperframes check` with `errors=0`)?
+12. Did you inspect `work/qa/contact.jpg` and `work/qa/opening.jpg` to confirm zero whiteouts, clipped text, broken media, or frozen stretches?
+13. Were all browser review notes applied and acknowledged before the final render, and did you ask the user to listen for voice pacing and music balance?
