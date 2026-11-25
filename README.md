@@ -4,13 +4,20 @@ Turn any topic, doc, codebase, or URL into a crisp 1-minute explainer video with
 
 https://github.com/user-attachments/assets/bdcc1496-7e1d-4956-844c-dab2d64c10b5
 
+[Watch the full tutorial](https://youtu.be/7I8B7CQky0Y) or [read the step-by-step guide](https://creatoreconomy.so/p/gemini-4-neon-and-antigravity-full-course) to see how I built this skill.
+
 ## Problem
 
 Great explainer videos make hard ideas click in 60 seconds, but building one by hand in After Effects or Blender takes days. And when you ask AI to help, most tools spit out static slide decks or garbled text, and giving frame-accurate feedback in chat is painful.
 
 ## What video explainer can do
 
-/video-explainer makes it easy to iterate with AI to create custom, code-driven explainers (~60 to 75 seconds by default or any length you ask for, written in plain English for a smart non-engineer). The best part of the skill is it gives you a review page to pin feedback on any frame until the video feels right.
+/video-explainer makes it easy to iterate with AI to create custom, code-driven explainers (~60 to 75 seconds by default or any length you ask for, written in plain English for a smart non-engineer). The best part of the skill is it gives you a review page to give feedback to your AI agent on any frame until the video feels right:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/review-dark.jpg">
+  <img alt="The review page: the draft explainer plays on a scene timeline, with comments pinned to frames on the right" src="assets/review-light.jpg">
+</picture>
 
 The skill supports making explainers in 3 visual styles:
 
@@ -22,7 +29,7 @@ Here's `/video-explainer how do black holes form` in each style:
 
 | Motion | Illustrated | 3D |
 |---|---|---|
-| ![Motion style](docs/motion.jpg) | ![Illustrated style](docs/illustrated.jpg) | ![3D style](docs/3d.jpg) |
+| ![Motion style](assets/motion.jpg) | ![Illustrated style](assets/illustrated.jpg) | ![3D style](assets/3d.jpg) |
 
 Motion is the fastest and cheapest. Illustrated and 3D look richer but use about 6 to 7 times as many tokens.
 

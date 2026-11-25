@@ -824,6 +824,7 @@ Sound effects: subtle
     def test_docs_have_zero_em_dashes(self):
         for rel in (
             "README.md",
+            "agents/openai.yaml",
             "skills/video-explainer/agents/openai.yaml",
             "skills/video-explainer/SKILL.md",
             "skills/video-explainer/reference.md",
@@ -831,6 +832,10 @@ Sound effects: subtle
         ):
             content = read_text(os.path.join(REPO_ROOT, rel))
             self.assertNotIn("\u2014", content, f"Found em dash in {rel}")
+        self.assertEqual(
+            read_text(os.path.join(REPO_ROOT, "agents", "openai.yaml")),
+            read_text(os.path.join(REPO_ROOT, "skills", "video-explainer", "agents", "openai.yaml")),
+        )
 
 
 if __name__ == "__main__":
