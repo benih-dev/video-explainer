@@ -102,10 +102,12 @@ const short = (id) => String(id).replace(/^s0+(?=\d)/, "s");
 const sceneAt = (t) => SCENES.find((s) => t >= s.start && t < s.end) || SCENES[SCENES.length - 1];
 const store = (k, val) => { try { if (val === undefined) return localStorage.getItem(k); localStorage.setItem(k, val); } catch {} };
 const VIDEO = v.getAttribute("src").split("?")[0];
-const KEY = "review:" + location.pathname + ":" + VIDEO;
+const KEY = "review:" + location.pathname;
 let state; try { state = JSON.parse(store(KEY)) || { comments: [] }; } catch { state = { comments: [] }; }
 state.overall = state.overall || "";
-const save = () => store(KEY, JSON.stringify(state));
+const hasNotes = () => state.comments.length > 0 || state.overall.trim() !== "";
+if (!hasNotes()) state.video = VIDEO;
+const save = () => { if (!hasNotes() || !state.video) state.video = VIDEO; store(KEY, JSON.stringify(state)); };
 
 // Start in the light theme; preserve choices made in this version.
 const setTheme = (t) => { document.documentElement.dataset.theme = t; $("theme").textContent = t === "dark" ? "☀" : "☾"; store("review:theme:v2", t); };
@@ -192,7 +194,6 @@ function render() {
   });
   updateSend();
 }
-const hasNotes = () => state.comments.length > 0 || state.overall.trim() !== "";
 const updateSend = () => { $("send").textContent = hasNotes() || note.value.trim() ? "Send notes" : "Looks good"; };
 $("overall").value = state.overall;
 $("overall").oninput = () => { state.overall = $("overall").value; save(); updateSend(); };
@@ -228,10 +229,10 @@ $("send").onclick = async () => {
   $("send").disabled = true; $("status").textContent = "Sending…";
   try {
     const r = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video: VIDEO, comments: state.comments, overall: state.overall.trim() }) });
+      body: JSON.stringify({ video: state.video || VIDEO, comments: state.comments, overall: state.overall.trim() }) });
     if (!r.ok) throw new Error(r.status);
     const approved = !hasNotes();
-    state = { comments: [], overall: "" }; $("overall").value = ""; save(); render();
+    state = { comments: [], overall: "", video: VIDEO }; $("overall").value = ""; save(); render();
     const delivery = await r.json();
     $("status").textContent = delivery.agent === "listening" ? (approved ? "Approval sent to the listening agent." : "Sent to the listening agent. Edits will appear here.") : "Saved. Agent is not listening yet; your notes are queued.";
     $("send").disabled = false;
