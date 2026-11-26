@@ -238,7 +238,7 @@ class ReviewPageRevisionTests(unittest.TestCase):
             self.assertNotIn("Frame:", md)
             self.assertNotIn("demo-v2.mp4", md)
 
-    def test_write_page_preserves_state_video_across_reloads(self):
+    def test_write_page_binds_comments_and_submission_to_video_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = tmp
             page = os.path.join(root, "work", "review", "index.html")
@@ -248,10 +248,9 @@ class ReviewPageRevisionTests(unittest.TestCase):
             review_page.write_page(root, page, v1, scenes_v1)
             with open(page, encoding="utf-8") as fh:
                 html_doc = fh.read()
-            self.assertIn('const KEY = "review:" + location.pathname;', html_doc)
-            self.assertIn('if (!hasNotes()) state.video = VIDEO;', html_doc)
+            self.assertIn('const VIDEO = v.getAttribute("src").split("?")[0];', html_doc)
             self.assertIn('video: VIDEO });', html_doc)
-            self.assertIn('body: JSON.stringify({ video: state.video || VIDEO,', html_doc)
+            self.assertIn('body: JSON.stringify({ video: VIDEO,', html_doc)
 
     def test_mixed_draft_comments_in_one_batch_keep_per_comment_revision(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -3,7 +3,7 @@ frame, and clicks Send. The server persists notes and keeps playing; an agent po
 Keep this file identical everywhere it is bundled."""
 import html, json, os, re, subprocess, sys, threading, time, webbrowser, uuid
 from urllib.request import urlopen
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 CSS = """
@@ -102,12 +102,11 @@ const short = (id) => String(id).replace(/^s0+(?=\d)/, "s");
 const sceneAt = (t) => SCENES.find((s) => t >= s.start && t < s.end) || SCENES[SCENES.length - 1];
 const store = (k, val) => { try { if (val === undefined) return localStorage.getItem(k); localStorage.setItem(k, val); } catch {} };
 const VIDEO = v.getAttribute("src").split("?")[0];
-const KEY = "review:" + location.pathname;
+const KEY = "review:" + JSON.stringify([location.pathname, v.getAttribute("src")]);
 let state; try { state = JSON.parse(store(KEY)) || { comments: [] }; } catch { state = { comments: [] }; }
 state.overall = state.overall || "";
 const hasNotes = () => state.comments.length > 0 || state.overall.trim() !== "";
-if (!hasNotes()) state.video = VIDEO;
-const save = () => { if (!hasNotes() || !state.video) state.video = VIDEO; store(KEY, JSON.stringify(state)); };
+const save = () => store(KEY, JSON.stringify(state));
 
 // Start in the light theme; preserve choices made in this version.
 const setTheme = (t) => { document.documentElement.dataset.theme = t; $("theme").textContent = t === "dark" ? "☀" : "☾"; store("review:theme:v2", t); };
@@ -229,10 +228,10 @@ $("send").onclick = async () => {
   $("send").disabled = true; $("status").textContent = "Sending…";
   try {
     const r = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video: state.video || VIDEO, comments: state.comments, overall: state.overall.trim() }) });
+      body: JSON.stringify({ video: VIDEO, comments: state.comments, overall: state.overall.trim() }) });
     if (!r.ok) throw new Error(r.status);
     const approved = !hasNotes();
-    state = { comments: [], overall: "", video: VIDEO }; $("overall").value = ""; save(); render();
+    state = { comments: [], overall: "" }; $("overall").value = ""; save(); render();
     const delivery = await r.json();
     $("status").textContent = delivery.agent === "listening" ? (approved ? "Approval sent to the listening agent." : "Sent to the listening agent. Edits will appear here.") : "Saved. Agent is not listening yet; your notes are queued.";
     $("send").disabled = false;
@@ -285,11 +284,12 @@ def probe(video):
 def write_page(root, page, video, scenes):
     """Write the review page for video. scenes: [{id, start, end, layout, visual, spoken}] covering the whole video."""
     dur, fps = probe(video)
-    src = video_key(root, video) + f"?v={int(os.path.getmtime(video))}"
+    revision = os.stat(video).st_mtime_ns
+    src = video_key(root, video) + f"?v={revision}"
     os.makedirs(os.path.dirname(page), exist_ok=True)
     poster = os.path.join(os.path.dirname(page), "poster.jpg")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", video, "-frames:v", "1", "-q:v", "3", poster], check=True)
-    poster_src = "/" + os.path.relpath(poster, root) + f"?v={os.stat(video).st_mtime_ns}"
+    poster_src = "/" + os.path.relpath(poster, root) + f"?v={revision}"
     content = PAGE.format(css=CSS, js=JS, src=html.escape(src), poster=html.escape(poster_src), scenes=json.dumps(scenes), dur=dur, fps=fps)
     atomic_text(page, content)
 
@@ -605,7 +605,7 @@ def serve(root, page, feedback, scenes, video, port, open_browser, timeout, word
     existing = info.get("url", "")
     if existing.startswith("http://127.0.0.1:"):
         try:
-            health = json.load(urlopen(existing.split("/review/")[0] + "/api/health", timeout=1))
+            health = json.load(urlopen(urljoin(existing, "/api/health"), timeout=1))
             if health.get("work") == work:
                 print(f"Review page: {existing}\nReused running review server. Poll for feedback with --poll {work}", flush=True)
                 if open_browser:
