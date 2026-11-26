@@ -194,7 +194,8 @@ function render() {
 const hasNotes = () => state.comments.length > 0 || state.overall.trim() !== "";
 const updateSend = () => { $("send").textContent = hasNotes() || note.value.trim() ? "Send notes" : "Looks good"; };
 $("overall").value = state.overall;
-$("overall").oninput = () => { state.overall = $("overall").value; save(); updateSend(); };
+let overallRevision = 0;
+$("overall").oninput = () => { overallRevision++; state.overall = $("overall").value; save(); updateSend(); };
 // Highlight the comment nearest the playhead.
 v.addEventListener("timeupdate", () => document.querySelectorAll(".comment").forEach((el) => el.classList.toggle("now", Math.abs(+el.dataset.t - v.currentTime) < 1.5)));
 function add() {
@@ -227,13 +228,17 @@ addEventListener("keydown", (e) => {
 
 $("send").onclick = async () => {
   if (note.value.trim()) add();
+  const submittedComments = new Set(state.comments);
+  const submittedOverall = state.overall.trim(), submittedOverallRevision = overallRevision;
+  const approved = !submittedComments.size && !submittedOverall;
   $("send").disabled = true; $("status").textContent = "Sending…";
   try {
     const r = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video: v.getAttribute("src").split("?")[0], comments: state.comments, overall: state.overall.trim() }) });
+      body: JSON.stringify({ video: v.getAttribute("src").split("?")[0], comments: [...submittedComments], overall: submittedOverall }) });
     if (!r.ok) throw new Error(r.status);
-    const approved = !hasNotes();
-    state = { comments: [], overall: "" }; $("overall").value = ""; save(); render();
+    state.comments = state.comments.filter((c) => !submittedComments.has(c));
+    if (overallRevision === submittedOverallRevision) state.overall = $("overall").value = "";
+    save(); render();
     const delivery = await r.json();
     $("status").textContent = delivery.agent === "listening" ? (approved ? "Approval sent to the listening agent." : "Sent to the listening agent. Edits will appear here.") : "Saved. Agent is not listening yet; your notes are queued.";
     $("send").disabled = false;
