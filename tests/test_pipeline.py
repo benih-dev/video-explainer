@@ -461,6 +461,78 @@ document.getElementById("status").textContent = "RESULT" + JSON.stringify(result
         self.assertFalse(result["mouseClickKeepsFocus"], "A mouse click should hand Space back to playback")
         self.assertTrue(result["keyboardClickKeepsFocus"])
 
+    def test_send_clears_only_submitted_review_notes(self):
+        chrome = subprocess.run(common.hf_cmd("browser", "path"), capture_output=True, text=True, env=common.hf_env()).stdout.strip().splitlines()
+        self.assertTrue(chrome and os.path.isfile(chrome[-1]), "HyperFrames has no Chrome yet: run setup.sh")
+        check = """<script>
+(async () => {
+  const setNote = (id, text) => {
+    $(id).value = text;
+    $(id).dispatchEvent(new Event("input"));
+  };
+  let finish, posted;
+  window.fetch = (url, options) => {
+    if (url !== "/api/feedback") return Promise.resolve({ json: async () => ({}) });
+    posted = JSON.parse(options.body);
+    return new Promise(resolve => { finish = () => resolve({ ok: true, json: async () => ({ agent: "listening" }) }); });
+  };
+  const draft = () => ({
+    overall: $("overall").value,
+    comments: Array.from($("list").querySelectorAll("p"), p => p.textContent),
+    saved: JSON.parse(localStorage.getItem(KEY)),
+    action: $("send").textContent,
+    status: $("status").textContent,
+  });
+  setNote("overall", "  First overall note  ");
+  setNote("note", "Frame note");
+  const first = $("send").onclick();
+  const sent = { overall: posted.overall, comments: posted.comments.map(c => c.note) };
+  setNote("overall", "Second overall note");
+  // The new frame note has the same text and timestamp as the submitted one.
+  setNote("note", "Frame note");
+  $("add").click();
+  finish();
+  await first;
+  const pending = draft();
+  const second = $("send").onclick();
+  finish();
+  await second;
+  const cleared = draft();
+  const approval = $("send").onclick();
+  setNote("overall", "Note typed during approval");
+  finish();
+  await approval;
+  const approved = draft();
+  $("status").textContent = "RESULT" + JSON.stringify({ sent, pending, cleared, approved }) + "END";
+})();
+</script>"""
+        with tempfile.TemporaryDirectory() as tmp:
+            video = os.path.join(tmp, "renders", "demo.mp4")
+            page = os.path.join(tmp, "work", "review", "index.html")
+            make_test_video(video, dur=2.0)
+            review_page.write_page(tmp, page, video, [{"id": "s01", "start": 0, "end": 2.0, "layout": "full", "visual": "graphic", "spoken": ""}])
+            write_text(page, read_text(page).replace("</body>", check + "</body>", 1))
+            dom = subprocess.run([chrome[-1], "--headless=new", "--disable-gpu", "--virtual-time-budget=3000",
+                                  f"--user-data-dir={os.path.join(tmp, 'chrome')}", "--dump-dom", "file://" + page],
+                                 capture_output=True, text=True, timeout=60, check=True).stdout
+        found = re.search(r"RESULT(.*?)END", html.unescape(dom))
+        self.assertIsNotNone(found, f"Review page self-check did not run:\n{dom[-2000:]}")
+        result = json.loads(found.group(1))
+        self.assertEqual(result["sent"], {"overall": "First overall note", "comments": ["Frame note"]})
+        for stage, overall, comments, action, status in (
+            ("pending", "Second overall note", ["Frame note"], "Send notes", "Sent to the listening agent. Edits will appear here."),
+            ("cleared", "", [], "Looks good", "Sent to the listening agent. Edits will appear here."),
+            ("approved", "Note typed during approval", [], "Send notes", "Approval sent to the listening agent."),
+        ):
+            with self.subTest(stage=stage):
+                current = result[stage]
+                self.assertEqual(current["overall"], overall)
+                self.assertEqual(current["comments"], comments)
+                self.assertEqual(current["saved"]["overall"], overall)
+                self.assertEqual([c["note"] for c in current["saved"]["comments"]], comments)
+                self.assertEqual(current["action"], action)
+                self.assertEqual(current["status"], status)
+
 
 class ReviewServerTests(unittest.TestCase):
     def test_review_notes_are_scoped_to_the_video_revision(self):
