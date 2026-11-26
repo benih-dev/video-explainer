@@ -207,7 +207,7 @@ function add() {
 // Commenting never pauses: the note keeps the time you started typing.
 note.onfocus = () => { if (!note.value.trim()) note.dataset.t = v.currentTime; };
 note.oninput = () => { $("add").disabled = !note.value.trim(); updateSend(); };
-note.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); add(); } if (e.key === "Escape") { note.value = ""; delete note.dataset.t; $("add").disabled = true; note.blur(); } };
+note.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); add(); } if (e.key === "Escape") note.blur(); };
 $("overall").onkeydown = (e) => { if (e.key === "Escape") $("overall").blur(); };
 $("add").onclick = add;
 
