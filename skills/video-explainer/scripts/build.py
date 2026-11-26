@@ -34,23 +34,6 @@ def number_parts(v):
     return v[:m.start()], float(num.replace(",", "")), v[m.end():], len(num.split(".")[1]) if "." in num else 0
 
 
-def synth_sfx(kind, sr=SR):
-    """Subtle synthesized UI tap and transition swell (zero external audio dependencies)."""
-    rng = np.random.default_rng(7 if kind == "tap" else 11)
-    if kind == "tap":
-        n = int(0.045 * sr)
-        x = rng.standard_normal(n) * np.exp(-np.linspace(0, 9, n))
-        x = np.convolve(x, np.ones(18) / 18, "same")
-        amp = 0.045
-    else:
-        n = int(0.30 * sr)
-        x = rng.standard_normal(n)
-        x = np.convolve(x, np.ones(60) / 60, "same") * np.sin(np.linspace(0, np.pi, n)) ** 2
-        amp = 0.032
-    x /= np.max(np.abs(x)) + 1e-9
-    return np.stack([x, x], 1) * amp
-
-
 # ---------- captions ----------
 
 def clean_word(w):
@@ -586,7 +569,44 @@ def render_primitive(sc, i, t0, d, W, H, safe_w, safe_h, A, hf, final_rows, prev
 
 # ---------- project builder ----------
 
-def build(project, style_arg=None):
+def build_audio(paths, script, style, scenes, words, dur, has_voice, sfx, mix):
+    music = setting(script, "music")
+    if music and music.lower() != "none":
+        m_low = music.strip().lower()
+        if m_low == "auto" or m_low.startswith("synth"):
+            music = music.strip()
+        else:
+            music = music if os.path.isabs(music) else os.path.join(paths["root"], music)
+            if not os.path.isfile(music):
+                die(f"music file not found: {music}")
+    else:
+        music = None
+    default_lvl = "-19" if has_voice else "-14"
+    level = float(re.findall(r"-?[\d.]+", setting(script, "music level", default_lvl))[0])
+    lifts = [tuple(float(x) for x in r.split("-")) for r in re.findall(r"\d+(?:\.\d+)?-\d+(?:\.\d+)?", setting(script, "music lift", ""))]
+    use_sfx = (setting(script, "sound effects") or style.get("sound_effects", "subtle")).lower() in ("subtle", "on", "studio", "auto")
+
+    explicit_cues = []
+    for c in script.get("sounds", []):
+        t_cue = resolve_cue_time(c["anchor"], scenes, words, dur)
+        explicit_cues.append({
+            "kind": c["kind"],
+            "t": t_cue,
+            "intensity": c["intensity"],
+            "duration": c["duration"],
+            "pan": c["pan"],
+        })
+    if explicit_cues:
+        # Suppress automatic shared-beat 'air' swells when an explicit sound cue already lands nearby
+        sfx = [
+            item for item in sfx
+            if not (isinstance(item, tuple) and item[0] == "air" and any(abs(item[1] - ec["t"]) < 0.45 for ec in explicit_cues))
+        ] + explicit_cues
+
+    mix_audio(paths["narration"] if has_voice else None, has_voice, music, level, dur, mix, lifts, sfx if use_sfx else ())
+
+
+def build(project, style_arg=None, *, include_audio=True):
     paths = project_paths(project)
     script = parse_script(paths["script"])
     aspect_name, (W, H) = resolve_aspect(script)
@@ -785,46 +805,20 @@ def build(project, style_arg=None):
                 f'<span class="band" data-layout-allow-caption-zone>{" ".join(inner_cap)}</span></div>'
             )
 
-    # Audio mix
-    music = setting(script, "music")
-    if music and music.lower() != "none":
-        m_low = music.strip().lower()
-        if m_low == "auto" or m_low.startswith("synth"):
-            music = music.strip()
-        else:
-            music = music if os.path.isabs(music) else os.path.join(paths["root"], music)
-            if not os.path.isfile(music):
-                die(f"music file not found: {music}")
-    else:
-        music = None
-    default_lvl = "-19" if has_voice else "-14"
-    level = float(re.findall(r"-?[\d.]+", setting(script, "music level", default_lvl))[0])
-    lifts = [tuple(float(x) for x in r.split("-")) for r in re.findall(r"\d+(?:\.\d+)?-\d+(?:\.\d+)?", setting(script, "music lift", ""))]
-    use_sfx = (setting(script, "sound effects") or style.get("sound_effects", "subtle")).lower() in ("subtle", "on", "studio", "auto")
-
-    explicit_cues = []
-    for c in script.get("sounds", []):
-        t_cue = resolve_cue_time(c["anchor"], scenes, words, dur)
-        explicit_cues.append({
-            "kind": c["kind"],
-            "t": t_cue,
-            "intensity": c["intensity"],
-            "duration": c["duration"],
-            "pan": c["pan"],
-        })
-    if explicit_cues:
-        # Suppress automatic shared-beat 'air' swells when an explicit sound cue already lands nearby
-        sfx = [
-            item for item in sfx
-            if not (isinstance(item, tuple) and item[0] == "air" and any(abs(item[1] - ec["t"]) < 0.45 for ec in explicit_cues))
-        ] + explicit_cues
-
-    mix = os.path.join(A, "mix.wav")
-    mix_audio(paths["narration"] if has_voice else None, has_voice, music, level, dur, mix, lifts, sfx if use_sfx else ())
+    mix = None
+    audio = ""
+    composition_duration = f"{(total - 0.25) / FPS:.4f}"
+    if include_audio:
+        mix = os.path.join(A, "mix.wav")
+        build_audio(paths, script, style, scenes, words, dur, has_voice, sfx, mix)
+        audio = (
+            f'  <audio id="mix" src="assets/mix.wav" data-start="0" '
+            f'data-duration="{composition_duration}" data-track-index="200"></audio>\n'
+        )
 
     scale_css = "0.78" if portrait else ("0.84" if square else "1")
     page = PAGE.format(
-        dur=f"{(total - 0.25) / FPS:.4f}",
+        dur=composition_duration,
         W=W, H=H, faces=face_css,
         bg=css_color(th["background"]),
         surface=css_color(th["surface"]),
@@ -853,6 +847,7 @@ def build(project, style_arg=None):
         scale=scale_css,
         hosts="\n".join(hosts),
         caps="\n  ".join(caps),
+        audio=audio,
         script="\n".join(js),
     )
     open(os.path.join(hf, "index.html"), "w", encoding="utf-8").write(page)
@@ -979,8 +974,7 @@ html, body {{ margin: 0; width: 100%; height: 100%; overflow: hidden; background
   <div id="captions" data-layout-allow-caption-zone>
   {caps}
   </div>
-  <audio id="mix" src="assets/mix.wav" data-start="0" data-duration="{dur}" data-track-index="200"></audio>
-</div>
+{audio}</div>
 <script>
 window.__timelines = window.__timelines || {{}};
 const tl = gsap.timeline({{ paused: true }});
