@@ -421,6 +421,50 @@ console.log("OK");
 
 
 class ReviewPageTests(unittest.TestCase):
+    def test_comment_label_matches_captured_time_after_seeking(self):
+        chrome = subprocess.run(common.hf_cmd("browser", "path"), capture_output=True, text=True, env=common.hf_env()).stdout.strip().splitlines()
+        self.assertTrue(chrome and os.path.isfile(chrome[-1]), "HyperFrames has no Chrome yet: run setup.sh")
+        check = """<script>
+const video = document.getElementById("v"), draft = document.getElementById("note");
+const label = () => document.getElementById("at").textContent;
+Object.defineProperty(video, "currentTime", { value: 0, writable: true });
+draft.focus();
+draft.value = "Frame note";
+draft.dispatchEvent(new Event("input"));
+video.currentTime = 1.5;
+video.dispatchEvent(new Event("seeked"));
+const pending = label();
+document.getElementById("add").click();
+const saved = document.querySelector(".comment .chip").textContent;
+const afterAdd = label();
+draft.focus();
+draft.value = "Discard this";
+draft.dispatchEvent(new Event("input"));
+video.currentTime = 0.5;
+video.dispatchEvent(new Event("timeupdate"));
+draft.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+document.getElementById("status").textContent = "RESULT" + JSON.stringify({ pending, saved, afterAdd, afterEscape: label() }) + "END";
+</script>"""
+        with tempfile.TemporaryDirectory() as tmp:
+            video = os.path.join(tmp, "renders", "demo.mp4")
+            page = os.path.join(tmp, "work", "review", "index.html")
+            make_test_video(video, dur=2.0)
+            review_page.write_page(tmp, page, video, [
+                {"id": "s01", "start": 0, "end": 1, "layout": "full", "visual": "graphic", "spoken": ""},
+                {"id": "s02", "start": 1, "end": 2, "layout": "full", "visual": "graphic", "spoken": ""},
+            ])
+            write_text(page, read_text(page).replace("</body>", check + "</body>", 1))
+            dom = subprocess.run([chrome[-1], "--headless=new", "--disable-gpu", "--virtual-time-budget=3000",
+                                  f"--user-data-dir={os.path.join(tmp, 'chrome')}", "--dump-dom", "file://" + page],
+                                 capture_output=True, text=True, timeout=60).stdout
+        found = re.search(r"RESULT(.*?)END", html.unescape(dom))
+        self.assertIsNotNone(found, f"Review page self-check did not run:\n{dom[-2000:]}")
+        result = json.loads(found.group(1))
+        self.assertEqual(result["saved"], "0:00.00 · s1")
+        self.assertEqual(result["pending"], result["saved"])
+        self.assertEqual(result["afterAdd"], "0:01.50 · s2")
+        self.assertEqual(result["afterEscape"], "0:00.50 · s1")
+
     def test_space_activates_focused_buttons_and_toggles_playback_elsewhere(self):
         chrome = subprocess.run(common.hf_cmd("browser", "path"), capture_output=True, text=True, env=common.hf_env()).stdout.strip().splitlines()
         self.assertTrue(chrome and os.path.isfile(chrome[-1]), "HyperFrames has no Chrome yet: run setup.sh")
