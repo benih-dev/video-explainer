@@ -413,13 +413,13 @@ def parse_script(path):
     if not os.path.isfile(path):
         die(f"{path} not found")
     settings, narration, scenes, fixes, emphasis, sounds = {}, {}, [], [], [], []
-    section, header = None, None
+    section, columns = None, None
     with open(path, encoding="utf-8") as fh:
         for i, raw in enumerate(fh, 1):
             s = raw.strip()
             if s.startswith("## "):
                 section = s[3:].strip().lower()
-                header = None
+                columns = None
                 continue
             if not s or s.startswith("# ") or s.startswith("<!--"):
                 continue
@@ -441,17 +441,18 @@ def parse_script(path):
                 if not s.startswith("|"):
                     continue
                 cells = [c.strip() for c in s.strip("|").split("|")]
-                if header is None:
-                    header = [c.lower() for c in cells]
+                if columns is None:
+                    columns = {name.lower(): j for j, name in enumerate(cells)}
+                    column_count = len(cells)
                     for need in ("id", "start", "end", "visual"):
-                        if need not in header:
+                        if need not in columns:
                             die(f"script.md line {i}: scenes table needs a '{need}' column")
                     continue
                 if all(re.fullmatch(r":?-+:?", c) for c in cells if c):
                     continue
-                if len(cells) != len(header):
-                    die(f"script.md line {i}: expected {len(header)} cells, got {len(cells)}. Use ' / ' instead of '|' inside cells.")
-                row = dict(zip(header, cells))
+                if len(cells) != column_count:
+                    die(f"script.md line {i}: expected {column_count} cells, got {len(cells)}. Use ' / ' instead of '|' inside cells.")
+                row = {name: cells[j] for name, j in columns.items()}
                 sid = row["id"].strip()
                 if not sid:
                     die(f"script.md line {i}: scene id cannot be empty")
@@ -462,6 +463,7 @@ def parse_script(path):
                     "visual": parse_visual(row["visual"], i),
                     "note": row.get("note", ""),
                     "line": i,
+                    "columns": columns,
                 })
             elif section.startswith("caption"):
                 m = re.match(r"-\s*(.+?)\s*->\s*(.+)$", s)
