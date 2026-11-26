@@ -3,7 +3,7 @@ frame, and clicks Send. The server persists notes and keeps playing; an agent po
 Keep this file identical everywhere it is bundled."""
 import html, json, os, re, subprocess, sys, threading, time, webbrowser, uuid
 from urllib.request import urlopen
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 CSS = """
@@ -101,7 +101,8 @@ const fmt = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, "0")
 const short = (id) => String(id).replace(/^s0+(?=\d)/, "s");
 const sceneAt = (t) => SCENES.find((s) => t >= s.start && t < s.end) || SCENES[SCENES.length - 1];
 const store = (k, val) => { try { if (val === undefined) return localStorage.getItem(k); localStorage.setItem(k, val); } catch {} };
-const KEY = "review:" + location.pathname;
+const VIDEO = v.getAttribute("src").split("?")[0];
+const KEY = "review:" + location.pathname + ":" + VIDEO;
 let state; try { state = JSON.parse(store(KEY)) || { comments: [] }; } catch { state = { comments: [] }; }
 state.overall = state.overall || "";
 const save = () => store(KEY, JSON.stringify(state));
@@ -227,7 +228,7 @@ $("send").onclick = async () => {
   $("send").disabled = true; $("status").textContent = "Sending…";
   try {
     const r = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video: v.getAttribute("src").split("?")[0], comments: state.comments, overall: state.overall.trim() }) });
+      body: JSON.stringify({ video: VIDEO, comments: state.comments, overall: state.overall.trim() }) });
     if (!r.ok) throw new Error(r.status);
     const approved = !hasNotes();
     state = { comments: [], overall: "" }; $("overall").value = ""; save(); render();
@@ -413,6 +414,72 @@ def handle_review_control():
     return True
 
 
+def video_key(root, video):
+    rel = os.path.relpath(os.path.realpath(video), os.path.realpath(root))
+    return "/" + rel.replace(os.sep, "/")
+
+
+def record_context(root, work, video, scenes, words=None):
+    path = os.path.join(work, "review-context.json")
+    existing = read_json(path, {})
+    if not isinstance(existing, dict):
+        existing = {}
+    revisions = dict(existing["revisions"]) if isinstance(existing.get("revisions"), dict) else {}
+    if existing.get("video") and not revisions:
+        prev_video = os.path.abspath(existing["video"])
+        revisions[video_key(root, prev_video)] = {
+            "video": prev_video,
+            "scenes": existing.get("scenes", []),
+            "words": existing.get("words"),
+        }
+    abs_video = os.path.abspath(video)
+    revisions[video_key(root, abs_video)] = {
+        "video": abs_video,
+        "scenes": scenes,
+        "words": words,
+    }
+    payload = {
+        "video": abs_video,
+        "scenes": scenes,
+        "words": words,
+        "revisions": revisions,
+    }
+    atomic_text(path, json.dumps(payload))
+    return payload
+
+
+def resolve_context(root, context, requested_video, default_video, default_scenes, default_words):
+    if not isinstance(context, dict):
+        context = {}
+    current_video = context.get("video", default_video)
+    current_scenes = context.get("scenes", default_scenes)
+    current_words = context.get("words", default_words)
+    if not requested_video:
+        return current_video, current_scenes, current_words
+
+    req_path = unquote(urlsplit(requested_video).path)
+    revisions = context.get("revisions") if isinstance(context.get("revisions"), dict) else {}
+    rev = revisions.get(req_path)
+    if isinstance(rev, dict) and isinstance(rev.get("video"), str):
+        return rev["video"], rev.get("scenes", []), rev.get("words")
+
+    if current_video and video_key(root, current_video) == req_path:
+        return current_video, current_scenes, current_words
+    if default_video and video_key(root, default_video) == req_path:
+        return default_video, default_scenes, default_words
+
+    root_real = os.path.realpath(root)
+    rel = req_path.lstrip("/")
+    if rel:
+        candidate = os.path.realpath(os.path.join(root_real, rel))
+        try:
+            if os.path.commonpath([root_real, candidate]) == root_real and os.path.isfile(candidate):
+                return candidate, [], None
+        except ValueError:
+            pass
+    raise ValueError(f"Unknown review video: {requested_video}")
+
+
 def build_server(root, page, feedback, scenes, video, port, words=None):
     work = os.path.dirname(os.path.abspath(feedback))
 
@@ -448,20 +515,24 @@ def build_server(root, page, feedback, scenes, video, port, words=None):
                 data = json.loads(self.rfile.read(length))
                 if not isinstance(data, dict) or not isinstance(data.get("comments", []), list) or not isinstance(data.get("overall", ""), str):
                     raise ValueError("Invalid feedback")
+                if "video" in data and data["video"] is not None and not isinstance(data["video"], str):
+                    raise ValueError("Invalid video")
                 for c in data.get("comments", []):
                     if not isinstance(c, dict) or not isinstance(c.get("t"), (int, float)) or not isinstance(c.get("note"), str) or not isinstance(c.get("scene"), str):
                         raise ValueError("Invalid comment")
+                context = read_json(os.path.join(work, "review-context.json"), {})
+                target_video, target_scenes, target_words = resolve_context(
+                    root, context, data.get("video"), video, scenes, words
+                )
             except (ValueError, TypeError):
                 return self.send_error(400)
             batch_id = f"{time.time_ns()}-{uuid.uuid4().hex[:8]}"
-            context = read_json(os.path.join(work, "review-context.json"), {})
-            current_video = context.get("video", video)
-            frames = save_frames(data, current_video, os.path.join(work, "review-frames", batch_id))
-            markdown = notes_markdown(data, context.get("scenes", scenes), current_video, frames, context.get("words", words))
+            frames = save_frames(data, target_video, os.path.join(work, "review-frames", batch_id))
+            markdown = notes_markdown(data, target_scenes, target_video, frames, target_words)
             folder = os.path.join(work, "feedback-batches")
             markdown_path = os.path.join(folder, batch_id + ".md")
             atomic_text(markdown_path, markdown)
-            batch = {"status": "feedback", "batch_id": batch_id, "feedback_path": markdown_path,
+            batch = {"status": "feedback", "batch_id": batch_id, "video": target_video, "feedback_path": markdown_path,
                      "feedback": markdown, "approved": not data.get("comments") and not data.get("overall", "").strip()}
             atomic_text(os.path.join(folder, batch_id + ".json"), json.dumps(batch))
             atomic_text(feedback, markdown)
@@ -520,7 +591,7 @@ def build_server(root, page, feedback, scenes, video, port, words=None):
 def serve(root, page, feedback, scenes, video, port, open_browser, timeout, words=None):
     """Keep media available across submissions; the agent listens with a separate foreground poll."""
     work = os.path.dirname(os.path.abspath(feedback))
-    atomic_text(os.path.join(work, "review-context.json"), json.dumps({"video": video, "scenes": scenes, "words": words}))
+    record_context(root, work, video, scenes, words)
     info_path = os.path.join(work, "review-server.json")
     info = read_json(info_path, {})
     existing = info.get("url", "")
