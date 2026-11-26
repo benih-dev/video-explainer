@@ -963,5 +963,21 @@ Sound effects: subtle
         )
 
 
+class ReviewContrastTests(unittest.TestCase):
+    def test_secondary_text_meets_wcag_aa_in_both_themes(self):
+        def luminance(color):
+            rgb = [int(color[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+            linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+            return sum(c * weight for c, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
+
+        for theme in ("light", "dark"):
+            block = review_page.CSS.split(f':root[data-theme="{theme}"] {{', 1)[1].split("}", 1)[0]
+            palette = dict(re.findall(r"--([\w-]+): #([0-9a-f]{6})", block))
+            for surface in ("band", "band-alt", "canvas", "rail", "card", "chip", "input-bg", "soft"):
+                with self.subTest(theme=theme, surface=surface):
+                    low, high = sorted((luminance(palette["mute"]), luminance(palette[surface])))
+                    self.assertGreaterEqual((high + 0.05) / (low + 0.05), 4.5)
+
+
 if __name__ == "__main__":
     unittest.main()

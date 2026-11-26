@@ -9,13 +9,13 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 CSS = """
 :root, :root[data-theme="dark"] {
   --canvas: #171614; --rail: #1f1e1b; --card: #262420; --card-border: #34322d; --hair: #2f2d29;
-  --strong-border: #403d37; --txt: #eae7e0; --strong-txt: #f4f1ea; --mute: #9c968a; --faint: #6e6961;
+  --strong-border: #403d37; --txt: #eae7e0; --strong-txt: #f4f1ea; --mute: #9c968a;
   --soft: #2c2a26; --chip: #2e2c27; --input-bg: #1c1b18; --focus: #4d4941; --danger: #d9705f;
   --btn-bg: #f0ede6; --btn-fg: #1b1a16; --band: #2a2825; --band-alt: #24221f; --band-cur: #3a3631; --pin: #e0a800;
 }
 :root[data-theme="light"] {
   --canvas: #eceae4; --rail: #fbfaf7; --card: #ffffff; --card-border: #e9e7e0; --hair: #e4e2db;
-  --strong-border: #d9d5c9; --txt: #26241e; --strong-txt: #1b1a16; --mute: #8b877d; --faint: #b6b2a8;
+  --strong-border: #d9d5c9; --txt: #26241e; --strong-txt: #1b1a16; --mute: #625d53;
   --soft: #f2f0ea; --chip: #f4f2ec; --input-bg: #fdfcfa; --focus: #c2beb4; --danger: #b23b2e;
   --btn-bg: #1b1a16; --btn-fg: #fbfaf7; --band: #dfdcd4; --band-alt: #e6e3dc; --band-cur: #cfcbc1; --pin: #c99500;
 }
@@ -36,10 +36,10 @@ body { background: var(--canvas); color: var(--txt); font: 13px/1.5 -apple-syste
 .play { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--strong-border); background: var(--card); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; }
 .play:hover { border-color: var(--focus); }
 .tc { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--strong-txt); }
-.tc span { color: var(--faint); }
+.tc span { color: var(--mute); }
 .chip { padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--mute); font-size: 11px; font-weight: 600; }
 #bar { position: relative; height: 28px; border-radius: 6px; overflow: hidden; background: var(--band); cursor: pointer; user-select: none; }
-.band { position: absolute; top: 0; bottom: 0; background: var(--band); border-right: 1px solid var(--canvas); font: 10px ui-monospace, monospace; color: var(--faint); padding: 7px 0 0 5px; overflow: hidden; white-space: nowrap; }
+.band { position: absolute; top: 0; bottom: 0; background: var(--band); border-right: 1px solid var(--canvas); font: 10px ui-monospace, monospace; color: var(--mute); padding: 7px 0 0 5px; overflow: hidden; white-space: nowrap; }
 .band:nth-child(even) { background: var(--band-alt); }
 .band.cur { background: var(--band-cur); color: var(--strong-txt); }
 .band.nolabel { color: transparent; }
@@ -50,7 +50,7 @@ body { background: var(--canvas); color: var(--txt); font: 13px/1.5 -apple-syste
 .rail-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 12px 12px; }
 .rail-head { display: flex; align-items: center; gap: 7px; padding: 0 4px 10px; }
 .section { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); }
-.dim { color: var(--faint); font-size: 11px; }
+.dim { color: var(--mute); font-size: 11px; }
 .icon-btn { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--hair); border-radius: 7px; background: var(--soft); font-size: 12.5px; line-height: 1; cursor: pointer; }
 .icon-btn:hover { border-color: var(--strong-border); color: var(--strong-txt); }
 .push { margin-left: auto; }
@@ -64,12 +64,12 @@ kbd { font: 10.5px ui-monospace, monospace; padding: 1px 5px; border: 1px solid 
 .compose-head { display: flex; align-items: center; gap: 7px; margin-bottom: 9px; }
 textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 6px; background: var(--input-bg); font-size: 13px; line-height: 1.5; resize: none; outline: none; }
 textarea:focus { border-color: var(--focus); background: var(--card); }
+textarea::placeholder { color: var(--mute); opacity: 1; }
 #note { min-height: 72px; }
 .compose-foot { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
 .btn { padding: 6px 12px; border: 1px solid var(--btn-bg); border-radius: 6px; background: var(--btn-bg); color: var(--btn-fg); font-size: 12px; font-weight: 500; cursor: pointer; }
-.btn:disabled { border-color: var(--hair); background: var(--soft); color: var(--faint); cursor: default; }
 .cards { display: flex; flex-direction: column; gap: 8px; }
-.empty { padding: 8px 4px; color: var(--faint); font-size: 12px; }
+.empty { padding: 8px 4px; color: var(--mute); font-size: 12px; }
 .comment { padding: 11px 12px; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card); cursor: pointer; }
 .comment:hover { border-color: var(--strong-border); }
 .comment.now { border-color: var(--pin); }
@@ -77,13 +77,14 @@ textarea:focus { border-color: var(--focus); background: var(--card); }
 .comment:hover .del { opacity: 1; }
 .comment-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .comment p { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
-.del { margin-left: auto; border: 0; background: none; color: var(--faint); font-size: 11px; cursor: pointer; }
+.del { margin-left: auto; border: 0; background: none; color: var(--mute); font-size: 11px; cursor: pointer; }
 .del:hover { color: var(--danger); }
 .rail-foot { flex: none; padding: 12px; border-top: 1px solid var(--hair); display: flex; flex-direction: column; gap: 8px; }
 #overall { min-height: 38px; max-height: 120px; font-size: 12.5px; }
-.key { margin-left: 6px; opacity: .6; font-size: 11px; }
+.key { margin-left: 6px; font-size: 11px; }
 .btn:not(:disabled) { cursor: pointer; }
 .send { width: 100%; padding: 10px 12px; border: 1px solid var(--btn-bg); border-radius: 6px; background: var(--btn-bg); color: var(--btn-fg); font-size: 12.5px; font-weight: 500; cursor: pointer; }
+.btn:disabled, .send:disabled { border-color: var(--hair); background: var(--soft); color: var(--mute); cursor: not-allowed; }
 #status { min-height: 16px; color: var(--mute); font-size: 11.5px; text-align: center; }
 @media (max-aspect-ratio: 4/5) {   /* phone or portrait window: video and timeline on top, comments below */
   body { flex-direction: column; }
