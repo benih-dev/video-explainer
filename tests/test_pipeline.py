@@ -75,6 +75,31 @@ def make_test_video(path, w=640, h=360, dur=2.5, fps=24):
 
 
 class ScriptParserTests(unittest.TestCase):
+    def test_narration_sync_follows_each_scene_table_header(self):
+        with tempfile.TemporaryDirectory() as proj:
+            md = os.path.join(proj, "script.md")
+            source = """Voice: kokoro
+
+## Scenes
+| id | visual | Start | note | END |
+|---|---|---|---|---|
+| s01 | title: Reordered scene | auto | keep this note | auto |
+
+## Scenes continued
+  | end | visual | id | start |
+  |---|---|---|---|
+  | auto | title: Next scene | s02 | auto |
+"""
+            write_text(md, source)
+            subprocess.run([sys.executable, os.path.join(SCRIPTS_DIR, "narrate.py"), proj],
+                           check=True, capture_output=True, text=True)
+            expected = source.replace("| auto | keep this note | auto |", "| 0.00 | keep this note | 2.50 |")
+            expected = expected.replace("| auto | title: Next scene | s02 | auto |",
+                                        "| 5.00 | title: Next scene | s02 | 2.50 |")
+            self.assertEqual(read_text(md), expected)
+            scenes = common.validate_scenes(common.parse_script(md), proj)
+            self.assertEqual([(sc["start"], sc["end"]) for sc in scenes], [(0.0, 2.5), (2.5, 5.0)])
+
     def test_parse_all_twelve_visual_types_and_styles(self):
         with tempfile.TemporaryDirectory() as tmp:
             write_text(os.path.join(tmp, "g.html"), '<div data-composition-id="g"></div>')

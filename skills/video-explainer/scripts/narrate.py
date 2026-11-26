@@ -222,30 +222,18 @@ def trim_and_pad_scene(raw_audio, out_wav, is_last=False):
 
 def sync_script_times(script_path, updated_scenes):
     """Update start and end columns in script.md's ## Scenes table cleanly."""
-    lines = open(script_path, encoding="utf-8").read().splitlines(keepends=True)
+    with open(script_path, encoding="utf-8", newline="") as fh:
+        lines = fh.readlines()
     by_line = {sc["line"]: sc for sc in updated_scenes}
-    out = []
-    for idx, line in enumerate(lines, 1):
-        if idx in by_line:
-            sc = by_line[idx]
-            ending = "\n" if line.endswith("\n") else ""
-            raw = line.rstrip("\r\n")
-            lead_pipe = raw.startswith("|")
-            trail_pipe = raw.endswith("|")
-            parts = raw.strip("|").split("|")
-            # Replace columns 1 (start) and 2 (end) assuming standard | id | start | end | ... |
-            if len(parts) >= 4:
-                parts[1] = f" {sc['start']:.2f} "
-                parts[2] = f" {sc['end']:.2f} "
-                rebuilt = "|".join(parts)
-                if lead_pipe:
-                    rebuilt = "|" + rebuilt
-                if trail_pipe:
-                    rebuilt = rebuilt + "|"
-                out.append(rebuilt + ending)
-                continue
-        out.append(line)
-    open(script_path, "w", encoding="utf-8").write("".join(out))
+    for line_no, sc in by_line.items():
+        idx = line_no - 1
+        prefix, cells, suffix = re.fullmatch(r"(\s*\|+)(.*?)(\|*\s*)", lines[idx]).groups()
+        parts = cells.split("|")
+        for key in ("start", "end"):
+            parts[sc["columns"][key]] = f" {sc[key]:.2f} "
+        lines[idx] = prefix + "|".join(parts) + suffix
+    with open(script_path, "w", encoding="utf-8", newline="") as fh:
+        fh.writelines(lines)
 
 
 def format_scene_cues(words, scene_start):
