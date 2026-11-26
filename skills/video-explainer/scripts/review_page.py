@@ -3,7 +3,7 @@ frame, and clicks Send. The server persists notes and keeps playing; an agent po
 Keep this file identical everywhere it is bundled."""
 import html, json, os, re, subprocess, sys, threading, time, webbrowser, uuid
 from urllib.request import urlopen
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 CSS = """
@@ -101,9 +101,11 @@ const fmt = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, "0")
 const short = (id) => String(id).replace(/^s0+(?=\d)/, "s");
 const sceneAt = (t) => SCENES.find((s) => t >= s.start && t < s.end) || SCENES[SCENES.length - 1];
 const store = (k, val) => { try { if (val === undefined) return localStorage.getItem(k); localStorage.setItem(k, val); } catch {} };
+const VIDEO = v.getAttribute("src").split("?")[0];
 const KEY = "review:" + JSON.stringify([location.pathname, v.getAttribute("src")]);
 let state; try { state = JSON.parse(store(KEY)) || { comments: [] }; } catch { state = { comments: [] }; }
 state.overall = state.overall || "";
+const hasNotes = () => state.comments.length > 0 || state.overall.trim() !== "";
 const save = () => store(KEY, JSON.stringify(state));
 
 // Start in the light theme; preserve choices made in this version.
@@ -191,7 +193,6 @@ function render() {
   });
   updateSend();
 }
-const hasNotes = () => state.comments.length > 0 || state.overall.trim() !== "";
 const updateSend = () => { $("send").textContent = hasNotes() || note.value.trim() ? "Send notes" : "Looks good"; };
 $("overall").value = state.overall;
 $("overall").oninput = () => { state.overall = $("overall").value; save(); updateSend(); };
@@ -201,7 +202,7 @@ function add() {
   const text = note.value.trim();
   if (!text) return;
   const t = +(+(note.dataset.t ?? v.currentTime)).toFixed(3), s = sceneAt(t); delete note.dataset.t;
-  state.comments.push({ t, scene: s.id, scene_start: s.start, scene_end: s.end, note: text });
+  state.comments.push({ t, scene: s.id, scene_start: s.start, scene_end: s.end, note: text, video: VIDEO });
   note.value = ""; $("add").disabled = true; save(); render(); note.blur();
 }
 // Commenting never pauses: the note keeps the time you started typing.
@@ -227,7 +228,7 @@ $("send").onclick = async () => {
   $("send").disabled = true; $("status").textContent = "Sending…";
   try {
     const r = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video: v.getAttribute("src").split("?")[0], comments: state.comments, overall: state.overall.trim() }) });
+      body: JSON.stringify({ video: VIDEO, comments: state.comments, overall: state.overall.trim() }) });
     if (!r.ok) throw new Error(r.status);
     const approved = !hasNotes();
     state = { comments: [], overall: "" }; $("overall").value = ""; save(); render();
@@ -284,7 +285,7 @@ def write_page(root, page, video, scenes):
     """Write the review page for video. scenes: [{id, start, end, layout, visual, spoken}] covering the whole video."""
     dur, fps = probe(video)
     revision = os.stat(video).st_mtime_ns
-    src = "/" + os.path.relpath(video, root) + f"?v={revision}"
+    src = video_key(root, video) + f"?v={revision}"
     os.makedirs(os.path.dirname(page), exist_ok=True)
     poster = os.path.join(os.path.dirname(page), "poster.jpg")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", video, "-frames:v", "1", "-q:v", "3", poster], check=True)
@@ -293,29 +294,38 @@ def write_page(root, page, video, scenes):
     atomic_text(page, content)
 
 
-def save_frames(data, video, out_dir):
+def save_frames(data, video, out_dir, comment_videos=None):
     """Save the frame under each comment, so the agent sees what the reviewer paused on. Returns {index: path}."""
     os.makedirs(out_dir, exist_ok=True)
     for f in os.listdir(out_dir):
         os.remove(os.path.join(out_dir, f))
     frames = {}
     for i, c in enumerate(data.get("comments", [])):
+        c_video = comment_videos[i] if comment_videos is not None else video
         path = os.path.join(out_dir, f"{i + 1:02d}-{c['t']:.2f}.jpg")
-        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{c['t']:.3f}", "-i", video, "-frames:v", "1",
+        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{c['t']:.3f}", "-i", c_video, "-frames:v", "1",
                             "-vf", "scale=540:-2", "-q:v", "4", path], capture_output=True)
         if r.returncode == 0 and os.path.exists(path):
             frames[i] = path
     return frames
 
 
-def notes_markdown(data, scenes, video, frames=None, words=None):
+def notes_markdown(data, scenes, video, frames=None, words=None, comment_contexts=None):
     by_id = {s["id"]: s for s in scenes}
     frames = frames or {}
-    lines = [f"# Review notes: {os.path.basename(video)}", ""]
+    base_name = os.path.basename(video)
+    lines = [f"# Review notes: {base_name}", ""]
     for i, c in enumerate(data.get("comments", [])):
-        s = by_id.get(c["scene"], {})
-        lines += [f"## {fmt(c['t'])} · {short(c['scene'])} ({s.get('layout', '')}, {s.get('visual', '')})",
-                  f"Says: “{words_between(words, c['t'] - 5, c['t'] + 2) if words else s.get('spoken', '')}”"] + ([f"Frame: {frames[i]}"] if i in frames else []) + ["", c["note"], ""]
+        if comment_contexts is not None:
+            c_video, c_scenes, c_words = comment_contexts[i]
+            s = {sc["id"]: sc for sc in c_scenes}.get(c["scene"], {})
+        else:
+            c_video, c_words = video, words
+            s = by_id.get(c["scene"], {})
+        c_name = os.path.basename(c_video)
+        rev_tag = f" · {c_name}" if c_name != base_name else ""
+        lines += [f"## {fmt(c['t'])} · {short(c['scene'])} ({s.get('layout', '')}, {s.get('visual', '')}){rev_tag}",
+                  f"Says: “{words_between(c_words, c['t'] - 5, c['t'] + 2) if c_words else s.get('spoken', '')}”"] + ([f"Frame: {frames[i]}"] if i in frames else []) + ["", c["note"], ""]
     if data.get("overall"):
         lines += ["## Overall", data["overall"], ""]
     if len(lines) == 2:
@@ -414,6 +424,63 @@ def handle_review_control():
     return True
 
 
+def video_key(root, video):
+    rel = os.path.relpath(os.path.abspath(video), os.path.abspath(root))
+    return "/" + rel.replace(os.sep, "/")
+
+
+def record_context(root, work, video, scenes, words=None):
+    path = os.path.join(work, "review-context.json")
+    existing = read_json(path, {})
+    if not isinstance(existing, dict):
+        existing = {}
+    revisions = dict(existing["revisions"]) if isinstance(existing.get("revisions"), dict) else {}
+    if existing.get("video") and not revisions:
+        prev_video = os.path.abspath(existing["video"])
+        revisions[video_key(root, prev_video)] = {
+            "video": prev_video,
+            "scenes": existing.get("scenes", []),
+            "words": existing.get("words"),
+        }
+    abs_video = os.path.abspath(video)
+    revisions[video_key(root, abs_video)] = {
+        "video": abs_video,
+        "scenes": scenes,
+        "words": words,
+    }
+    payload = {
+        "video": abs_video,
+        "scenes": scenes,
+        "words": words,
+        "revisions": revisions,
+    }
+    atomic_text(path, json.dumps(payload))
+    return payload
+
+
+def resolve_context(root, context, requested_video, default_video, default_scenes, default_words):
+    if not isinstance(context, dict):
+        context = {}
+    current_video = context.get("video", default_video)
+    current_scenes = context.get("scenes", default_scenes)
+    current_words = context.get("words", default_words)
+    if not requested_video:
+        return current_video, current_scenes, current_words
+
+    req_path = unquote(urlsplit(requested_video).path)
+    revisions = context.get("revisions") if isinstance(context.get("revisions"), dict) else {}
+    rev = revisions.get(req_path)
+    if isinstance(rev, dict) and isinstance(rev.get("video"), str):
+        return rev["video"], rev.get("scenes", []), rev.get("words")
+
+    if current_video and video_key(root, current_video) == req_path:
+        return current_video, current_scenes, current_words
+    if default_video and video_key(root, default_video) == req_path:
+        return default_video, default_scenes, default_words
+
+    raise ValueError(f"Unknown review video: {requested_video}")
+
+
 def build_server(root, page, feedback, scenes, video, port, words=None):
     work = os.path.dirname(os.path.abspath(feedback))
 
@@ -449,20 +516,31 @@ def build_server(root, page, feedback, scenes, video, port, words=None):
                 data = json.loads(self.rfile.read(length))
                 if not isinstance(data, dict) or not isinstance(data.get("comments", []), list) or not isinstance(data.get("overall", ""), str):
                     raise ValueError("Invalid feedback")
+                if "video" in data and data["video"] is not None and not isinstance(data["video"], str):
+                    raise ValueError("Invalid video")
                 for c in data.get("comments", []):
                     if not isinstance(c, dict) or not isinstance(c.get("t"), (int, float)) or not isinstance(c.get("note"), str) or not isinstance(c.get("scene"), str):
                         raise ValueError("Invalid comment")
+                    if "video" in c and c["video"] is not None and not isinstance(c["video"], str):
+                        raise ValueError("Invalid comment video")
+                context = read_json(os.path.join(work, "review-context.json"), {})
+                target_video, target_scenes, target_words = resolve_context(
+                    root, context, data.get("video"), video, scenes, words
+                )
+                comment_contexts = [
+                    resolve_context(root, context, c.get("video") or data.get("video"), video, scenes, words)
+                    for c in data.get("comments", [])
+                ]
             except (ValueError, TypeError):
                 return self.send_error(400)
             batch_id = f"{time.time_ns()}-{uuid.uuid4().hex[:8]}"
-            context = read_json(os.path.join(work, "review-context.json"), {})
-            current_video = context.get("video", video)
-            frames = save_frames(data, current_video, os.path.join(work, "review-frames", batch_id))
-            markdown = notes_markdown(data, context.get("scenes", scenes), current_video, frames, context.get("words", words))
+            frames = save_frames(data, target_video, os.path.join(work, "review-frames", batch_id),
+                                 [ctx[0] for ctx in comment_contexts])
+            markdown = notes_markdown(data, target_scenes, target_video, frames, target_words, comment_contexts)
             folder = os.path.join(work, "feedback-batches")
             markdown_path = os.path.join(folder, batch_id + ".md")
             atomic_text(markdown_path, markdown)
-            batch = {"status": "feedback", "batch_id": batch_id, "feedback_path": markdown_path,
+            batch = {"status": "feedback", "batch_id": batch_id, "video": target_video, "feedback_path": markdown_path,
                      "feedback": markdown, "approved": not data.get("comments") and not data.get("overall", "").strip()}
             atomic_text(os.path.join(folder, batch_id + ".json"), json.dumps(batch))
             atomic_text(feedback, markdown)
@@ -521,7 +599,7 @@ def build_server(root, page, feedback, scenes, video, port, words=None):
 def serve(root, page, feedback, scenes, video, port, open_browser, timeout, words=None):
     """Keep media available across submissions; the agent listens with a separate foreground poll."""
     work = os.path.dirname(os.path.abspath(feedback))
-    atomic_text(os.path.join(work, "review-context.json"), json.dumps({"video": video, "scenes": scenes, "words": words}))
+    record_context(root, work, video, scenes, words)
     info_path = os.path.join(work, "review-server.json")
     info = read_json(info_path, {})
     existing = info.get("url", "")
