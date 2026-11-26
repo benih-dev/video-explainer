@@ -196,7 +196,9 @@ class ReviewPageRevisionTests(unittest.TestCase):
             scenes_v1 = [{"id": "s01", "start": 0.0, "end": 2.0, "layout": "title", "visual": "title: One", "spoken": "One."}]
 
             base_url = self._start_server(root, page, feedback, scenes_v1, v1, [])
-            for bad_video in ("/../../etc/passwd", "/renders/does-not-exist.mp4", 123):
+            with open(os.path.join(root, "script.md"), "w", encoding="utf-8") as fh:
+                fh.write("# secret script\n")
+            for bad_video in ("/../../etc/passwd", "/renders/does-not-exist.mp4", "/script.md", 123):
                 with self.assertRaises(HTTPError) as cm:
                     post_json(base_url + "/api/feedback", {"video": bad_video, "comments": [], "overall": "hi"})
                 self.assertEqual(cm.exception.code, 400)

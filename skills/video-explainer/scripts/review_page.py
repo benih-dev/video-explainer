@@ -468,15 +468,6 @@ def resolve_context(root, context, requested_video, default_video, default_scene
     if default_video and video_key(root, default_video) == req_path:
         return default_video, default_scenes, default_words
 
-    root_real = os.path.realpath(root)
-    rel = req_path.lstrip("/")
-    if rel:
-        candidate = os.path.realpath(os.path.join(root_real, rel))
-        try:
-            if os.path.commonpath([root_real, candidate]) == root_real and os.path.isfile(candidate):
-                return candidate, [], None
-        except ValueError:
-            pass
     raise ValueError(f"Unknown review video: {requested_video}")
 
 
