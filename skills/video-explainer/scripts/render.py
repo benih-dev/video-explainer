@@ -8,7 +8,7 @@ a final render replaces every earlier version, and later drafts leave it alone."
 import argparse, glob, math, os, re, shutil, subprocess, sys, tempfile
 
 from build import build
-from common import FPS, die, hf_cmd, hf_env, parse_script, project_paths, resolve_aspect, run
+from common import COMPOSITION_TAG, FPS, composition_id, die, hf_cmd, hf_env, project_paths, run
 
 
 def hyperframes(*args, allow_fail=False):
@@ -74,10 +74,8 @@ def main():
         die("HyperFrames needs Node.js 22 or newer: https://nodejs.org")
 
     paths = project_paths(a.project)
-    aspect_name, _ = resolve_aspect(parse_script(paths["script"]))
-    share_scale = {"16:9": "1280:720", "9:16": "720:1280", "1:1": "720:720"}[aspect_name]
-
-    hf, mix, dur = build(a.project, a.style)
+    hf, mix, dur, qa_inputs = build(a.project, a.style)
+    aspect_name = qa_inputs["aspect"]
     hyperframes("lint", hf)
 
     if a.preview:
@@ -109,6 +107,7 @@ def main():
         return
 
     quality = "draft" if a.draft else "looks"
+    composition = composition_id(hf, **qa_inputs)
     with tempfile.TemporaryDirectory() as tmp:
         silent = os.path.join(tmp, "video.mp4")
         rendered = False
@@ -121,10 +120,12 @@ def main():
         run([
             "ffmpeg", "-v", "error", "-y", "-i", silent, "-i", mix, "-map", "0:v", "-map", "1:a",
             "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-frames:v", str(round(dur * FPS)),
-            "-t", f"{dur:.6f}", "-movflags", "+faststart", out,
+            "-t", f"{dur:.6f}", "-metadata", f"{COMPOSITION_TAG}={composition}",
+            "-movflags", "+faststart+use_metadata_tags", out,
         ])
 
     if a.share:
+        share_scale = {"16:9": "1280:720", "9:16": "720:1280", "1:1": "720:720"}[aspect_name]
         share = os.path.join(paths["renders"], "share", os.path.basename(out))
         encode_share_copy(out, share, share_scale)
         prune(out, final=not a.draft)

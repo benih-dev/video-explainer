@@ -595,6 +595,22 @@ Sound effects: subtle
             self._run_py("qa.py", proj)
 
             master = os.path.join(proj, "renders", "unvoiced-demo-v1.mp4")
+            last_report = read_text(os.path.join(proj, "work", "qa", "report.md"))
+            write_text(script_path, orig_script.replace("Aspect: 16:9", "Aspect: 9:16"))
+            mismatch = subprocess.run([py_runner, os.path.join(SCRIPTS_DIR, "qa.py"), proj, master],
+                                      capture_output=True, text=True)
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn("does not match the composition", mismatch.stderr)
+            self.assertEqual(read_text(os.path.join(proj, "work", "qa", "report.md")), last_report)
+            write_text(script_path, orig_script)
+
+            hf_index = os.path.join(proj, "hf", "index.html")
+            write_text(hf_index, read_text(hf_index) + "<!-- A different build at the same aspect ratio. -->")
+            mismatch = subprocess.run([py_runner, os.path.join(SCRIPTS_DIR, "qa.py"), proj, master],
+                                      capture_output=True, text=True)
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn("does not match the composition", mismatch.stderr)
+
             share_dir = os.path.join(proj, "renders", "share")
             self.assertTrue(os.path.isfile(master))
             self.assertFalse(os.path.exists(share_dir))

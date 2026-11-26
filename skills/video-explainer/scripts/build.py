@@ -857,7 +857,10 @@ def build(project, style_arg=None):
     )
     open(os.path.join(hf, "index.html"), "w", encoding="utf-8").write(page)
     print(f"Built {len(scenes)} scenes ({W}x{H}) and {len(track)} captions ({dur:.2f}s).")
-    return hf, mix, dur
+    return hf, mix, dur, {
+        "aspect": aspect_name, "captions_on": captions_on,
+        "loudness_target": has_voice or bool(music), "scenes": scenes,
+    }
 
 
 PAGE = """<!DOCTYPE html>

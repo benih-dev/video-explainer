@@ -1,10 +1,11 @@
 """Shared helpers: aspect presets, ffmpeg/ffprobe wrappers, style loading, and the script.md parser."""
-import glob, json, os, re, subprocess, sys, wave
+import glob, hashlib, json, os, re, subprocess, sys, wave
 
 import numpy as np
 from sfx import parse_sound_line
 
 FPS = 30
+COMPOSITION_TAG = "video_explainer_composition_v1"
 HF_VERSION = "0.9.79"
 HF = f"hyperframes@{HF_VERSION}"   # pinned so renders and alignments stay identical across machines
 _HF_BIN = None
@@ -144,6 +145,27 @@ def project_paths(project):
         "words": os.path.join(p, "work", "words.json"),
         "transcript": os.path.join(p, "work", "transcript.md"),
     }
+
+
+def composition_id(hf_dir, aspect, captions_on, loudness_target, scenes):
+    cuts = [(scene["id"], scene["start"]) for scene in scenes]
+    digest = hashlib.sha256(json.dumps([aspect, captions_on, loudness_target, cuts]).encode())
+    for root, dirs, files in os.walk(hf_dir):
+        if root == hf_dir and ".hyperframes" in dirs:
+            dirs.remove(".hyperframes")
+        dirs.sort()
+        for name in sorted(files + [name for name in dirs if os.path.islink(os.path.join(root, name))]):
+            path = os.path.join(root, name)
+            digest.update(os.fsencode(os.path.relpath(path, hf_dir)) + b"\0")
+            if os.path.islink(path):
+                digest.update(os.fsencode(os.readlink(path)) + b"\0")
+            if os.path.isfile(path):
+                with open(path, "rb") as fh:
+                    file_digest = hashlib.sha256()
+                    for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                        file_digest.update(chunk)
+                digest.update(file_digest.digest())
+    return digest.hexdigest()
 
 
 # ---------- audio energy ----------
