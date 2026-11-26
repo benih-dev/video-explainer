@@ -211,8 +211,11 @@ note.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefau
 $("overall").onkeydown = (e) => { if (e.key === "Escape") $("overall").blur(); };
 $("add").onclick = add;
 
+// A mouse click hands focus back to the page so Space keeps playing; keyboard focus stays on the button.
+addEventListener("click", (e) => { if (e.detail) e.target.closest("button")?.blur(); }, true);
 addEventListener("keydown", (e) => {
   if (e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+  if (e.code === "Space" && e.target.tagName === "BUTTON") return;  // Let a focused button activate.
   const step = e.shiftKey ? 1 : 1 / FPS;
   if (e.code === "Space") { e.preventDefault(); toggle(); }
   else if (e.key === "ArrowLeft") { e.preventDefault(); v.pause(); seek(v.currentTime - step); }

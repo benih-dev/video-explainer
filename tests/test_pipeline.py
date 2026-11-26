@@ -1,5 +1,5 @@
 """Unit and end-to-end integration tests for /video-explainer."""
-import json, os, subprocess, sys, tempfile, threading, unittest
+import html, json, os, re, subprocess, sys, tempfile, threading, unittest
 from unittest import mock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -418,6 +418,48 @@ console.log("OK");
             _, ok_cap, det_cap = qa.motion_liveliness(fake_vid, 5.5)
             self.assertFalse(ok_cap, f"Caption-only motion should not fool motion_liveliness: {det_cap}")
             self.assertIn("FAIL", det_cap)
+
+
+class ReviewPageTests(unittest.TestCase):
+    def test_space_activates_focused_buttons_and_toggles_playback_elsewhere(self):
+        chrome = subprocess.run(common.hf_cmd("browser", "path"), capture_output=True, text=True, env=common.hf_env()).stdout.strip().splitlines()
+        self.assertTrue(chrome and os.path.isfile(chrome[-1]), "HyperFrames has no Chrome yet: run setup.sh")
+        spy = """<script>window.__toggles = 0;
+HTMLMediaElement.prototype.play = function () { window.__toggles++; return Promise.resolve(); };</script>"""
+        check = """<script>
+const space = (el) => {
+  el.focus(); window.__toggles = 0;
+  const e = new KeyboardEvent("keydown", { code: "Space", key: " ", bubbles: true, cancelable: true });
+  el.dispatchEvent(e);
+  return { prevented: e.defaultPrevented, toggles: window.__toggles };
+};
+const result = {};
+for (const id of ["theme", "keysbtn", "send"]) result[id] = space(document.getElementById(id));
+document.activeElement.blur(); result.page = space(document.body);
+const theme = document.getElementById("theme");
+theme.focus(); theme.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+result.mouseClickKeepsFocus = document.activeElement === theme;
+theme.focus(); theme.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
+result.keyboardClickKeepsFocus = document.activeElement === theme;
+document.getElementById("status").textContent = "RESULT" + JSON.stringify(result) + "END";
+</script>"""
+        with tempfile.TemporaryDirectory() as tmp:
+            video = os.path.join(tmp, "renders", "demo.mp4")
+            page = os.path.join(tmp, "work", "review", "index.html")
+            make_test_video(video, dur=2.0)
+            review_page.write_page(tmp, page, video, [{"id": "s01", "start": 0, "end": 2.0, "layout": "full", "visual": "graphic", "spoken": ""}])
+            write_text(page, read_text(page).replace("<body>", "<body>" + spy, 1).replace("</body>", check + "</body>", 1))
+            dom = subprocess.run([chrome[-1], "--headless=new", "--disable-gpu", "--virtual-time-budget=3000",
+                                  f"--user-data-dir={os.path.join(tmp, 'chrome')}", "--dump-dom", "file://" + page],
+                                 capture_output=True, text=True, timeout=60).stdout
+        found = re.search(r"RESULT(.*?)END", html.unescape(dom))
+        self.assertIsNotNone(found, f"Review page self-check did not run:\n{dom[-2000:]}")
+        result = json.loads(found.group(1))
+        for button in ("theme", "keysbtn", "send"):
+            self.assertEqual(result[button], {"prevented": False, "toggles": 0}, f"Space on focused #{button} must activate it, not playback")
+        self.assertEqual(result["page"], {"prevented": True, "toggles": 1})
+        self.assertFalse(result["mouseClickKeepsFocus"], "A mouse click should hand Space back to playback")
+        self.assertTrue(result["keyboardClickKeepsFocus"])
 
 
 class ReviewServerTests(unittest.TestCase):
