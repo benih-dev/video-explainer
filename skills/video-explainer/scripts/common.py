@@ -245,9 +245,12 @@ def _num_or_auto(s, line_no, what):
     if t in ("auto", "-", ""):
         return None
     try:
-        return float(s)
+        val = float(s)
     except ValueError:
         die(f"script.md line {line_no}: {what} '{s}' must be a number or 'auto'")
+    if not np.isfinite(val):
+        die(f"script.md line {line_no}: {what} '{s}' must be finite")
+    return val
 
 
 def _strip_emphasis_marker(s):
