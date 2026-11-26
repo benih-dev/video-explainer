@@ -1,6 +1,7 @@
 """Unit and end-to-end integration tests for /video-explainer."""
 import html, json, os, re, subprocess, sys, tempfile, threading, unittest
 from unittest import mock
+from urllib.request import Request, urlopen
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS_DIR = os.path.join(REPO_ROOT, "skills", "video-explainer", "scripts")
@@ -463,6 +464,53 @@ document.getElementById("status").textContent = "RESULT" + JSON.stringify(result
 
 
 class ReviewServerTests(unittest.TestCase):
+    def test_feedback_includes_last_frame_after_its_start(self):
+        with tempfile.TemporaryDirectory() as root:
+            video = os.path.join(root, "draft.mp4")
+            page = os.path.join(root, "work", "review", "index.html")
+            feedback = os.path.join(root, "work", "feedback.md")
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=30:duration=5.8",
+                            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-video_track_timescale", "10000000", video], check=True)
+            reference = os.path.join(root, "last-frame.jpg")
+            subprocess.run(["ffmpeg", "-v", "error", "-i", video, "-frames:v", "1",
+                            "-vf", r"select=eq(n\,173),scale=540:-2", "-q:v", "4", reference], check=True)
+            scenes = [{"id": "s01", "start": 0, "end": 5.8, "layout": "title"}]
+            with review_page.build_server(root, page, feedback, scenes, video, 0) as server:
+                worker = threading.Thread(target=server.serve_forever)
+                worker.start()
+                try:
+                    request = Request(f"http://127.0.0.1:{server.server_port}/api/feedback",
+                                      data=json.dumps({"comments": [{"t": 5.799, "scene": "s01", "note": "Final frame"}]}).encode(),
+                                      headers={"Content-Type": "application/json"})
+                    with urlopen(request, timeout=10) as response:
+                        self.assertEqual(response.status, 200)
+                        batch_id = json.load(response)["batch_id"]
+                finally:
+                    server.shutdown()
+                    worker.join()
+            frame = os.path.join(root, "work", "review-frames", batch_id, "01-5.80.jpg")
+            self.assertIn(f"Frame: {frame}", read_text(feedback))
+            with open(frame, "rb") as captured, open(reference, "rb") as expected:
+                self.assertEqual(captured.read(), expected.read())
+
+    def test_frame_capture_uses_ffmpegs_default_video_stream(self):
+        with tempfile.TemporaryDirectory() as root:
+            video = os.path.join(root, "two-streams.mp4")
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=red:size=160x90:rate=10:duration=1",
+                            "-f", "lavfi", "-i", "color=blue:size=320x180:rate=10:duration=1",
+                            "-map", "0:v", "-map", "1:v", "-c:v", "libx264", "-disposition:v:0", "0",
+                            "-disposition:v:1", "default", video], check=True)
+            reference = os.path.join(root, "default-stream.jpg")
+            subprocess.run(["ffmpeg", "-v", "error", "-i", video, "-map", "0:v:1", "-frames:v", "1",
+                            "-vf", "scale=540:-2", "-q:v", "4", reference], check=True)
+            frames = review_page.save_frames({"comments": [{"t": 0.2}, {"t": 0.999}]}, video, os.path.join(root, "frames"))
+            with open(reference, "rb") as expected:
+                default_frame = expected.read()
+            self.assertEqual(set(frames), {0, 1})
+            for frame in frames.values():
+                with open(frame, "rb") as captured:
+                    self.assertEqual(captured.read(), default_frame)
+
     def test_review_notes_are_scoped_to_the_video_revision(self):
         with tempfile.TemporaryDirectory() as root:
             page = os.path.join(root, "work", "review", "index.html")

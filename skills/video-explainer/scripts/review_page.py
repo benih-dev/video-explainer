@@ -1,7 +1,7 @@
 """Shared review page: one player with a scene timeline. The reviewer pauses or keeps playing, comments on any
 frame, and clicks Send. The server persists notes and keeps playing; an agent polls and acknowledges batches.
 Keep this file identical everywhere it is bundled."""
-import html, json, os, re, subprocess, sys, threading, time, webbrowser, uuid
+import html, json, os, re, shutil, subprocess, sys, threading, time, webbrowser, uuid
 from urllib.request import urlopen
 from urllib.parse import urljoin, urlsplit
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -302,10 +302,23 @@ def save_frames(data, video, out_dir):
     for f in os.listdir(out_dir):
         os.remove(os.path.join(out_dir, f))
     frames = {}
+    last_frame = None
+    cmd = ["ffmpeg", "-v", "error", "-y"]
+    source = ["-i", video]
+    image = ["-vf", "scale=540:-2", "-q:v", "4"]
     for i, c in enumerate(data.get("comments", [])):
         path = os.path.join(out_dir, f"{i + 1:02d}-{c['t']:.2f}.jpg")
-        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{c['t']:.3f}", "-i", video, "-frames:v", "1",
-                            "-vf", "scale=540:-2", "-q:v", "4", path], capture_output=True)
+        r = subprocess.run(cmd + ["-ss", f"{c['t']:.3f}"] + source + ["-frames:v", "1"] + image + [path], capture_output=True)
+        if r.returncode == 0 and not os.path.exists(path):
+            if last_frame is not None:
+                shutil.copyfile(last_frame, path)
+            else:
+                output = source + ["-vsync", "0", "-update", "1"] + image + [path]
+                r = subprocess.run(cmd + ["-sseof", "-2"] + output, capture_output=True)
+                if r.returncode != 0 or not os.path.exists(path):
+                    r = subprocess.run(cmd + output, capture_output=True)
+                if r.returncode == 0 and os.path.exists(path):
+                    last_frame = path
         if r.returncode == 0 and os.path.exists(path):
             frames[i] = path
     return frames
