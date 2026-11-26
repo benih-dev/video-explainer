@@ -469,7 +469,8 @@ class ReviewServerTests(unittest.TestCase):
             video = os.path.join(root, "draft.mp4")
             page = os.path.join(root, "work", "review", "index.html")
             feedback = os.path.join(root, "work", "feedback.md")
-            make_test_video(video, w=160, h=90, dur=5.8, fps=30)
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=30:duration=5.8",
+                            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-video_track_timescale", "10000000", video], check=True)
             reference = os.path.join(root, "last-frame.jpg")
             subprocess.run(["ffmpeg", "-v", "error", "-i", video, "-frames:v", "1",
                             "-vf", r"select=eq(n\,173),scale=540:-2", "-q:v", "4", reference], check=True)
