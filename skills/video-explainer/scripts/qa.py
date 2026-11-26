@@ -6,8 +6,9 @@ import glob, json, math, os, re, subprocess, sys
 
 import numpy as np
 
-from common import (FPS, captions_enabled, hf_cmd, hf_env, parse_json_output, parse_script, project_paths,
-                    resolve_aspect, resolve_max_duration, resolve_voice, run, setting)
+from common import (COMPOSITION_TAG, FPS, captions_enabled, composition_id, die, hf_cmd, hf_env,
+                    parse_json_output, parse_script, project_paths, resolve_aspect, resolve_max_duration,
+                    resolve_voice, run, setting)
 
 DURATION_GRACE_SECONDS = 2.0
 MOTION_FPS = 2.0
@@ -159,6 +160,13 @@ def main():
         sys.exit("error: no rendered video found in renders/. Run render.py first.")
     video = sys.argv[2] if len(sys.argv) == 3 else max(renders, key=os.path.getmtime)
 
+    rendered_composition = run([
+        "ffprobe", "-v", "error", "-show_entries", f"format_tags={COMPOSITION_TAG}",
+        "-of", "default=noprint_wrappers=1:nokey=1", video,
+    ]).stdout.strip()
+    if not rendered_composition:
+        die(f"{video} has no render composition metadata. Run render.py and QA the new master MP4.")
+
     script = parse_script(paths["script"])
     aspect_name, (W, H) = resolve_aspect(script)
     max_duration = resolve_max_duration(script)
@@ -168,6 +176,11 @@ def main():
     has_music = bool(music and music.lower() != "none")
     has_words = os.path.isfile(paths["words"]) and bool(json.load(open(paths["words"], encoding="utf-8")))
     captions_on = captions_enabled(script, paths["root"]) and has_words
+    loudness_target = has_voice or has_music
+    hf_dir = os.path.join(paths["root"], "hf")
+    if rendered_composition != composition_id(hf_dir, aspect_name, captions_on, loudness_target, script["scenes"]):
+        die(f"{video} does not match the composition in this project. "
+            "Run render.py and QA the new master MP4.")
 
     qa = os.path.join(paths["work"], "qa")
     os.makedirs(os.path.join(qa, "cuts"), exist_ok=True)
@@ -186,7 +199,7 @@ def main():
         fut_loud = pool.submit(loudness, video)
         fut_black = pool.submit(black_frames, video)
         fut_motion = pool.submit(extract_upper_canvas_diffs, video)
-        fut_hf = pool.submit(run_hyperframes_check, os.path.join(paths["root"], "hf"), captions_on, W, H)
+        fut_hf = pool.submit(run_hyperframes_check, hf_dir, captions_on, W, H)
 
         v, a = fut_streams.result()
         num, den = (int(x) for x in v["r_frame_rate"].split("/"))
@@ -223,7 +236,7 @@ def main():
 
     loudness_check = (
         ("Loudness is -15 to -13 LUFS", lufs_val is not None and -15 <= lufs_val <= -13, f"{lufs_val} LUFS")
-        if (has_voice or has_music) else
+        if loudness_target else
         ("Audio mode is unvoiced (no loudness target)", True, f"{lufs_val} LUFS (SFX/silent)")
     )
     peak_str = "-inf dBFS" if peak_val is not None and math.isinf(peak_val) else f"{peak_val} dBFS"

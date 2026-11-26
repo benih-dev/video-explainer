@@ -46,6 +46,8 @@ $S/py $S/qa.py "$P"
 
 `qa.py` runs `10/10` checks in `work/qa/report.md`: dimensions, 30 fps, audio stream, A/V sync, `duration_cap` (`<= Max duration + 2.0s`), loudness (`-15 to -13 LUFS`), peak (`<= -1.0 dBFS`), black frames, upper-canvas `motion_liveliness` (`< 4.0s` max frozen stretch, `>= 65%` active intervals on clips `>= 8s`), and `hyperframes check` (lint, runtime, layout, caption-zone, WCAG contrast).
 
+QA requires a master MP4 from `render.py` and its matching `hf/` composition. If the MP4 lacks render metadata or the composition no longer matches, re-render and run QA on the new master. `Max duration` remains a QA policy you can change without re-rendering.
+
 ## `script.md` format
 
 ```markdown

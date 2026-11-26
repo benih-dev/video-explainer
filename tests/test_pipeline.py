@@ -295,6 +295,14 @@ Captions: off
         bed = sfx.synth_ambient_score(3.0, mood="cosmic")
         self.assertEqual(bed.shape, (3 * sfx.SR, 2))
 
+    def test_noise_sfx_is_reproducible_across_processes(self):
+        cmd = [sys.executable, "-c", "import sys, sfx; sys.stdout.buffer.write(sfx.synth_cue('whoosh').tobytes())"]
+        samples = [
+            subprocess.check_output(cmd, cwd=SCRIPTS_DIR, env=dict(os.environ, PYTHONHASHSEED=seed))
+            for seed in ("1", "2")
+        ]
+        self.assertTrue(samples[0] == samples[1], "The same cue produced different samples in two processes")
+
     def test_stage_js_exports_drift_and_stage_css_classes(self):
         stage_js_path = os.path.join(REPO_ROOT, "skills", "video-explainer", "assets", "stage.js")
         stage_css = read_text(os.path.join(REPO_ROOT, "skills", "video-explainer", "assets", "stage.css"))
@@ -595,6 +603,22 @@ Sound effects: subtle
             self._run_py("qa.py", proj)
 
             master = os.path.join(proj, "renders", "unvoiced-demo-v1.mp4")
+            last_report = read_text(os.path.join(proj, "work", "qa", "report.md"))
+            write_text(script_path, orig_script.replace("Aspect: 16:9", "Aspect: 9:16"))
+            mismatch = subprocess.run([py_runner, os.path.join(SCRIPTS_DIR, "qa.py"), proj, master],
+                                      capture_output=True, text=True)
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn("does not match the composition", mismatch.stderr)
+            self.assertEqual(read_text(os.path.join(proj, "work", "qa", "report.md")), last_report)
+            write_text(script_path, orig_script)
+
+            hf_index = os.path.join(proj, "hf", "index.html")
+            write_text(hf_index, read_text(hf_index) + "<!-- A different build at the same aspect ratio. -->")
+            mismatch = subprocess.run([py_runner, os.path.join(SCRIPTS_DIR, "qa.py"), proj, master],
+                                      capture_output=True, text=True)
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn("does not match the composition", mismatch.stderr)
+
             share_dir = os.path.join(proj, "renders", "share")
             self.assertTrue(os.path.isfile(master))
             self.assertFalse(os.path.exists(share_dir))
