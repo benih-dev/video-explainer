@@ -285,7 +285,7 @@ def probe(video):
 def write_page(root, page, video, scenes):
     """Write the review page for video. scenes: [{id, start, end, layout, visual, spoken}] covering the whole video."""
     dur, fps = probe(video)
-    src = "/" + os.path.relpath(video, root) + f"?v={int(os.path.getmtime(video))}"
+    src = video_key(root, video) + f"?v={int(os.path.getmtime(video))}"
     os.makedirs(os.path.dirname(page), exist_ok=True)
     poster = os.path.join(os.path.dirname(page), "poster.jpg")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", video, "-frames:v", "1", "-q:v", "3", poster], check=True)
@@ -416,7 +416,7 @@ def handle_review_control():
 
 
 def video_key(root, video):
-    rel = os.path.relpath(os.path.realpath(video), os.path.realpath(root))
+    rel = os.path.relpath(os.path.abspath(video), os.path.abspath(root))
     return "/" + rel.replace(os.sep, "/")
 
 

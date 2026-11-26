@@ -252,6 +252,41 @@ class ReviewPageRevisionTests(unittest.TestCase):
             self.assertIn('if (!hasNotes()) state.video = VIDEO;', html_doc)
             self.assertIn('body: JSON.stringify({ video: state.video || VIDEO,', html_doc)
 
+    def test_symlinked_draft_video_resolves_its_revision(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as external:
+            root = tmp
+            page = os.path.join(root, "work", "review", "index.html")
+            feedback = os.path.join(root, "work", "feedback.md")
+            target_v1 = os.path.join(external, "raw-v1.mp4")
+            make_solid_video(target_v1, "0xE11D48")
+            os.makedirs(os.path.join(root, "renders"), exist_ok=True)
+            link_v1 = os.path.join(root, "renders", "demo-v1.mp4")
+            os.symlink(target_v1, link_v1)
+
+            scenes_v1 = [{"id": "s01", "start": 0.0, "end": 2.0, "layout": "title", "visual": "title: Symlinked", "spoken": "Linked line."}]
+            base_url = self._start_server(root, page, feedback, scenes_v1, link_v1, [])
+
+            status, reply = post_json(
+                base_url + "/api/feedback",
+                {
+                    "video": "/renders/demo-v1.mp4",
+                    "comments": [{"t": 0.5, "scene": "s01", "note": "Check symlinked draft"}],
+                    "overall": "",
+                },
+            )
+            self.assertEqual(status, 200)
+            batch_md_path = os.path.join(root, "work", "feedback-batches", reply["batch_id"] + ".md")
+            with open(batch_md_path, encoding="utf-8") as fh:
+                md = fh.read()
+            self.assertIn("# Review notes: demo-v1.mp4", md)
+            self.assertIn("(title, title: Symlinked)", md)
+            self.assertIn("Linked line.", md)
+            m = re.search(r"^Frame: (.+)$", md, re.MULTILINE)
+            self.assertIsNotNone(m)
+            r, g, b = average_rgb(m.group(1).strip())
+            self.assertGreater(r, 180)
+            self.assertGreater(r, b + 100)
+
 
 if __name__ == "__main__":
     unittest.main()
