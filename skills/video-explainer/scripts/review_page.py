@@ -125,11 +125,16 @@ const fitLabels = () => document.querySelectorAll(".band").forEach((b) => b.clas
 window.addEventListener("resize", fitLabels); fitLabels();
 
 const seek = (t) => { v.currentTime = Math.max(0, Math.min(DUR - 0.001, t)); };
+const commentTime = () => +(+(note.dataset.t ?? v.currentTime)).toFixed(3);
+const updateCommentLabel = () => {
+  const t = commentTime();
+  $("at").textContent = `${fmt(t)} · ${short(sceneAt(t).id)}`;
+};
 function tick() {
   const t = v.currentTime, s = sceneAt(t);
   $("tc").innerHTML = `${fmt(t)} <span>/ ${fmt(DUR)}</span>`;
   $("scene").textContent = `${short(s.id)} · ${s.layout}`;
-  $("at").textContent = `${fmt(t)} · ${short(s.id)}`;
+  updateCommentLabel();
   $("head").style.left = (t / DUR) * 100 + "%";
   document.querySelectorAll(".band").forEach((b) => b.classList.toggle("cur", b.dataset.id === s.id));
   $("play").textContent = v.paused ? "▶" : "❚❚";
@@ -200,14 +205,17 @@ v.addEventListener("timeupdate", () => document.querySelectorAll(".comment").for
 function add() {
   const text = note.value.trim();
   if (!text) return;
-  const t = +(+(note.dataset.t ?? v.currentTime)).toFixed(3), s = sceneAt(t); delete note.dataset.t;
+  const t = commentTime(), s = sceneAt(t); delete note.dataset.t;
   state.comments.push({ t, scene: s.id, scene_start: s.start, scene_end: s.end, note: text });
-  note.value = ""; $("add").disabled = true; save(); render(); note.blur();
+  note.value = ""; $("add").disabled = true; save(); render(); updateCommentLabel(); note.blur();
 }
 // Commenting never pauses: the note keeps the time you started typing.
-note.onfocus = () => { if (!note.value.trim()) note.dataset.t = v.currentTime; };
+note.onfocus = () => { if (!note.value.trim()) note.dataset.t = v.currentTime; updateCommentLabel(); };
 note.oninput = () => { $("add").disabled = !note.value.trim(); updateSend(); };
-note.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); add(); } if (e.key === "Escape") { note.value = ""; delete note.dataset.t; $("add").disabled = true; note.blur(); } };
+note.onkeydown = (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); add(); }
+  if (e.key === "Escape") { note.value = ""; delete note.dataset.t; $("add").disabled = true; updateCommentLabel(); note.blur(); }
+};
 $("overall").onkeydown = (e) => { if (e.key === "Escape") $("overall").blur(); };
 $("add").onclick = add;
 
