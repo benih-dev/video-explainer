@@ -140,7 +140,8 @@ def synth_cue(kind, intensity=1.0, pan=0.0, duration=None, seed=0, sr=SR):
     """Synthesize a single stereo sound effect cue at 48 kHz."""
     kind = (kind or "tap").strip().lower()
     gain = float(np.clip(intensity, 0.05, 2.0))
-    rng = np.random.default_rng(101 + abs(hash((kind, seed))) % 10000)
+    seed_bytes = hashlib.blake2s(f"{kind}:{seed}".encode(), digest_size=8).digest()
+    rng = np.random.default_rng(int.from_bytes(seed_bytes, "big"))
 
     if kind == "tap":
         n = int((duration or 0.045) * sr)

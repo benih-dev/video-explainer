@@ -295,6 +295,14 @@ Captions: off
         bed = sfx.synth_ambient_score(3.0, mood="cosmic")
         self.assertEqual(bed.shape, (3 * sfx.SR, 2))
 
+    def test_noise_sfx_is_reproducible_across_processes(self):
+        cmd = [sys.executable, "-c", "import sys, sfx; sys.stdout.buffer.write(sfx.synth_cue('whoosh').tobytes())"]
+        samples = [
+            subprocess.check_output(cmd, cwd=SCRIPTS_DIR, env=dict(os.environ, PYTHONHASHSEED=seed))
+            for seed in ("1", "2")
+        ]
+        self.assertTrue(samples[0] == samples[1], "The same cue produced different samples in two processes")
+
     def test_stage_js_exports_drift_and_stage_css_classes(self):
         stage_js_path = os.path.join(REPO_ROOT, "skills", "video-explainer", "assets", "stage.js")
         stage_css = read_text(os.path.join(REPO_ROOT, "skills", "video-explainer", "assets", "stage.css"))
