@@ -77,7 +77,7 @@ def main():
     aspect_name, _ = resolve_aspect(parse_script(paths["script"]))
     share_scale = {"16:9": "1280:720", "9:16": "720:1280", "1:1": "720:720"}[aspect_name]
 
-    hf, mix, dur = build(a.project, a.style)
+    hf, mix, dur = build(a.project, a.style, include_audio=not a.preview)
     hyperframes("lint", hf)
 
     if a.preview:
