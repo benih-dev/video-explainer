@@ -250,7 +250,55 @@ class ReviewPageRevisionTests(unittest.TestCase):
                 html_doc = fh.read()
             self.assertIn('const KEY = "review:" + location.pathname;', html_doc)
             self.assertIn('if (!hasNotes()) state.video = VIDEO;', html_doc)
+            self.assertIn('video: VIDEO });', html_doc)
             self.assertIn('body: JSON.stringify({ video: state.video || VIDEO,', html_doc)
+
+    def test_mixed_draft_comments_in_one_batch_keep_per_comment_revision(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = tmp
+            page = os.path.join(root, "work", "review", "index.html")
+            feedback = os.path.join(root, "work", "feedback.md")
+            v1 = os.path.join(root, "renders", "demo-v1.mp4")
+            v2 = os.path.join(root, "renders", "demo-v2.mp4")
+            make_solid_video(v1, "0xE11D48")  # red
+            make_solid_video(v2, "0x2563EB")  # blue
+
+            scenes_v1 = [{"id": "s01", "start": 0.0, "end": 2.0, "layout": "title", "visual": "title: Draft One", "spoken": "One."}]
+            words_v1 = [{"text": "Alpha", "start": 0.1, "end": 0.6}]
+            scenes_v2 = [{"id": "s01", "start": 0.0, "end": 2.0, "layout": "code", "visual": "code: Draft Two", "spoken": "Two."}]
+            words_v2 = [{"text": "Beta", "start": 0.1, "end": 0.6}]
+
+            base_url = self._start_server(root, page, feedback, scenes_v1, v1, words_v1)
+            review_page.write_page(root, page, v2, scenes_v2)
+            review_page.serve(root, page, feedback, scenes_v2, v2, 0, False, 0.1, words_v2)
+
+            status, reply = post_json(
+                base_url + "/api/feedback",
+                {
+                    "video": "/renders/demo-v1.mp4",
+                    "comments": [
+                        {"t": 0.3, "scene": "s01", "note": "From draft 1", "video": "/renders/demo-v1.mp4"},
+                        {"t": 0.4, "scene": "s01", "note": "Added after reload on draft 2", "video": "/renders/demo-v2.mp4"},
+                    ],
+                    "overall": "",
+                },
+            )
+            self.assertEqual(status, 200)
+            batch_md_path = os.path.join(root, "work", "feedback-batches", reply["batch_id"] + ".md")
+            with open(batch_md_path, encoding="utf-8") as fh:
+                md = fh.read()
+
+            self.assertIn("(title, title: Draft One)", md)
+            self.assertIn("Says: “Alpha”", md)
+            self.assertIn("(code, code: Draft Two) · demo-v2.mp4", md)
+            self.assertIn("Says: “Beta”", md)
+
+            frame_paths = re.findall(r"^Frame: (.+)$", md, re.MULTILINE)
+            self.assertEqual(len(frame_paths), 2)
+            r1, _, b1 = average_rgb(frame_paths[0].strip())
+            r2, _, b2 = average_rgb(frame_paths[1].strip())
+            self.assertGreater(r1, b1 + 100)
+            self.assertGreater(b2, r2 + 100)
 
     def test_symlinked_draft_video_resolves_its_revision(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as external:

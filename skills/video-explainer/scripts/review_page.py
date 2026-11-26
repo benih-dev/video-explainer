@@ -203,7 +203,7 @@ function add() {
   const text = note.value.trim();
   if (!text) return;
   const t = +(+(note.dataset.t ?? v.currentTime)).toFixed(3), s = sceneAt(t); delete note.dataset.t;
-  state.comments.push({ t, scene: s.id, scene_start: s.start, scene_end: s.end, note: text });
+  state.comments.push({ t, scene: s.id, scene_start: s.start, scene_end: s.end, note: text, video: VIDEO });
   note.value = ""; $("add").disabled = true; save(); render(); note.blur();
 }
 // Commenting never pauses: the note keeps the time you started typing.
@@ -294,29 +294,38 @@ def write_page(root, page, video, scenes):
     atomic_text(page, content)
 
 
-def save_frames(data, video, out_dir):
+def save_frames(data, video, out_dir, comment_videos=None):
     """Save the frame under each comment, so the agent sees what the reviewer paused on. Returns {index: path}."""
     os.makedirs(out_dir, exist_ok=True)
     for f in os.listdir(out_dir):
         os.remove(os.path.join(out_dir, f))
     frames = {}
     for i, c in enumerate(data.get("comments", [])):
+        c_video = comment_videos[i] if comment_videos is not None else video
         path = os.path.join(out_dir, f"{i + 1:02d}-{c['t']:.2f}.jpg")
-        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{c['t']:.3f}", "-i", video, "-frames:v", "1",
+        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{c['t']:.3f}", "-i", c_video, "-frames:v", "1",
                             "-vf", "scale=540:-2", "-q:v", "4", path], capture_output=True)
         if r.returncode == 0 and os.path.exists(path):
             frames[i] = path
     return frames
 
 
-def notes_markdown(data, scenes, video, frames=None, words=None):
+def notes_markdown(data, scenes, video, frames=None, words=None, comment_contexts=None):
     by_id = {s["id"]: s for s in scenes}
     frames = frames or {}
-    lines = [f"# Review notes: {os.path.basename(video)}", ""]
+    base_name = os.path.basename(video)
+    lines = [f"# Review notes: {base_name}", ""]
     for i, c in enumerate(data.get("comments", [])):
-        s = by_id.get(c["scene"], {})
-        lines += [f"## {fmt(c['t'])} · {short(c['scene'])} ({s.get('layout', '')}, {s.get('visual', '')})",
-                  f"Says: “{words_between(words, c['t'] - 5, c['t'] + 2) if words else s.get('spoken', '')}”"] + ([f"Frame: {frames[i]}"] if i in frames else []) + ["", c["note"], ""]
+        if comment_contexts is not None:
+            c_video, c_scenes, c_words = comment_contexts[i]
+            s = {sc["id"]: sc for sc in c_scenes}.get(c["scene"], {})
+        else:
+            c_video, c_words = video, words
+            s = by_id.get(c["scene"], {})
+        c_name = os.path.basename(c_video)
+        rev_tag = f" · {c_name}" if c_name != base_name else ""
+        lines += [f"## {fmt(c['t'])} · {short(c['scene'])} ({s.get('layout', '')}, {s.get('visual', '')}){rev_tag}",
+                  f"Says: “{words_between(c_words, c['t'] - 5, c['t'] + 2) if c_words else s.get('spoken', '')}”"] + ([f"Frame: {frames[i]}"] if i in frames else []) + ["", c["note"], ""]
     if data.get("overall"):
         lines += ["## Overall", data["overall"], ""]
     if len(lines) == 2:
@@ -512,15 +521,22 @@ def build_server(root, page, feedback, scenes, video, port, words=None):
                 for c in data.get("comments", []):
                     if not isinstance(c, dict) or not isinstance(c.get("t"), (int, float)) or not isinstance(c.get("note"), str) or not isinstance(c.get("scene"), str):
                         raise ValueError("Invalid comment")
+                    if "video" in c and c["video"] is not None and not isinstance(c["video"], str):
+                        raise ValueError("Invalid comment video")
                 context = read_json(os.path.join(work, "review-context.json"), {})
                 target_video, target_scenes, target_words = resolve_context(
                     root, context, data.get("video"), video, scenes, words
                 )
+                comment_contexts = [
+                    resolve_context(root, context, c.get("video") or data.get("video"), video, scenes, words)
+                    for c in data.get("comments", [])
+                ]
             except (ValueError, TypeError):
                 return self.send_error(400)
             batch_id = f"{time.time_ns()}-{uuid.uuid4().hex[:8]}"
-            frames = save_frames(data, target_video, os.path.join(work, "review-frames", batch_id))
-            markdown = notes_markdown(data, target_scenes, target_video, frames, target_words)
+            frames = save_frames(data, target_video, os.path.join(work, "review-frames", batch_id),
+                                 [ctx[0] for ctx in comment_contexts])
+            markdown = notes_markdown(data, target_scenes, target_video, frames, target_words, comment_contexts)
             folder = os.path.join(work, "feedback-batches")
             markdown_path = os.path.join(folder, batch_id + ".md")
             atomic_text(markdown_path, markdown)
