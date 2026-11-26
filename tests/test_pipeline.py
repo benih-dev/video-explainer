@@ -421,6 +421,44 @@ console.log("OK");
 
 
 class ReviewPageTests(unittest.TestCase):
+    def test_escape_keeps_frame_note_draft(self):
+        chrome = subprocess.run(common.hf_cmd("browser", "path"), capture_output=True, text=True, env=common.hf_env()).stdout.strip().splitlines()
+        self.assertTrue(chrome and os.path.isfile(chrome[-1]), "HyperFrames has no Chrome yet: run setup.sh")
+        check = """<script>
+const draft = document.getElementById("note");
+draft.focus();
+const timestamp = draft.dataset.t;
+draft.value = "  Hold this frame longer.\\nKeep the title visible.  ";
+draft.dispatchEvent(new Event("input", { bubbles: true }));
+draft.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+const result = {
+  text: draft.value,
+  blurred: document.activeElement !== draft,
+  keepsTimestamp: draft.dataset.t === timestamp,
+  canAdd: !document.getElementById("add").disabled,
+  sendLabel: document.getElementById("send").textContent,
+};
+document.getElementById("status").textContent = "RESULT" + JSON.stringify(result) + "END";
+</script>"""
+        with tempfile.TemporaryDirectory() as tmp:
+            video = os.path.join(tmp, "renders", "demo.mp4")
+            page = os.path.join(tmp, "work", "review", "index.html")
+            make_test_video(video, dur=2.0)
+            review_page.write_page(tmp, page, video, [{"id": "s01", "start": 0, "end": 2.0, "layout": "full", "visual": "graphic", "spoken": ""}])
+            write_text(page, read_text(page).replace("</body>", check + "</body>", 1))
+            dom = subprocess.run([chrome[-1], "--headless=new", "--disable-gpu", "--virtual-time-budget=3000",
+                                  f"--user-data-dir={os.path.join(tmp, 'chrome')}", "--dump-dom", "file://" + page],
+                                 capture_output=True, text=True, timeout=60).stdout
+        found = re.search(r"RESULT(.*?)END", html.unescape(dom))
+        self.assertIsNotNone(found, f"Review page self-check did not run:\n{dom[-2000:]}")
+        self.assertEqual(json.loads(found.group(1)), {
+            "text": "  Hold this frame longer.\nKeep the title visible.  ",
+            "blurred": True,
+            "keepsTimestamp": True,
+            "canAdd": True,
+            "sendLabel": "Send notes",
+        })
+
     def test_space_activates_focused_buttons_and_toggles_playback_elsewhere(self):
         chrome = subprocess.run(common.hf_cmd("browser", "path"), capture_output=True, text=True, env=common.hf_env()).stdout.strip().splitlines()
         self.assertTrue(chrome and os.path.isfile(chrome[-1]), "HyperFrames has no Chrome yet: run setup.sh")
