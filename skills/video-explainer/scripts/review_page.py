@@ -296,16 +296,34 @@ def write_page(root, page, video, scenes):
     atomic_text(page, content)
 
 
+def last_frame_timestamp(video):
+    """Return the final video frame's presentation timestamp, not the container duration."""
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                        "frame=best_effort_timestamp_time", "-of", "json", video], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    timestamps = (f["best_effort_timestamp_time"] for f in json.loads(r.stdout).get("frames", [])
+                  if "best_effort_timestamp_time" in f)
+    return max(timestamps, key=float, default=None)
+
+
 def save_frames(data, video, out_dir):
     """Save the frame under each comment, so the agent sees what the reviewer paused on. Returns {index: path}."""
     os.makedirs(out_dir, exist_ok=True)
     for f in os.listdir(out_dir):
         os.remove(os.path.join(out_dir, f))
     frames = {}
+    last_timestamp = None
     for i, c in enumerate(data.get("comments", [])):
         path = os.path.join(out_dir, f"{i + 1:02d}-{c['t']:.2f}.jpg")
-        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{c['t']:.3f}", "-i", video, "-frames:v", "1",
-                            "-vf", "scale=540:-2", "-q:v", "4", path], capture_output=True)
+        output = ["-i", video, "-map", "0:v:0", "-frames:v", "1", "-vf", "scale=540:-2", "-q:v", "4", path]
+        cmd = ["ffmpeg", "-v", "error", "-y"]
+        r = subprocess.run(cmd + ["-ss", f"{c['t']:.3f}"] + output, capture_output=True)
+        if r.returncode == 0 and not os.path.exists(path):
+            if last_timestamp is None:
+                last_timestamp = last_frame_timestamp(video)
+            if last_timestamp is not None:
+                r = subprocess.run(cmd + ["-seek_timestamp", "1", "-ss", last_timestamp] + output, capture_output=True)
         if r.returncode == 0 and os.path.exists(path):
             frames[i] = path
     return frames
