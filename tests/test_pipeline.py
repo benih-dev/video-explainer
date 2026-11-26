@@ -493,6 +493,24 @@ class ReviewServerTests(unittest.TestCase):
             with open(frame, "rb") as captured, open(reference, "rb") as expected:
                 self.assertEqual(captured.read(), expected.read())
 
+    def test_frame_capture_uses_ffmpegs_default_video_stream(self):
+        with tempfile.TemporaryDirectory() as root:
+            video = os.path.join(root, "two-streams.mp4")
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=red:size=160x90:rate=10:duration=1",
+                            "-f", "lavfi", "-i", "color=blue:size=320x180:rate=10:duration=1",
+                            "-map", "0:v", "-map", "1:v", "-c:v", "libx264", "-disposition:v:0", "0",
+                            "-disposition:v:1", "default", video], check=True)
+            reference = os.path.join(root, "default-stream.jpg")
+            subprocess.run(["ffmpeg", "-v", "error", "-i", video, "-map", "0:v:1", "-frames:v", "1",
+                            "-vf", "scale=540:-2", "-q:v", "4", reference], check=True)
+            frames = review_page.save_frames({"comments": [{"t": 0.2}, {"t": 0.999}]}, video, os.path.join(root, "frames"))
+            with open(reference, "rb") as expected:
+                default_frame = expected.read()
+            self.assertEqual(set(frames), {0, 1})
+            for frame in frames.values():
+                with open(frame, "rb") as captured:
+                    self.assertEqual(captured.read(), default_frame)
+
     def test_review_notes_are_scoped_to_the_video_revision(self):
         with tempfile.TemporaryDirectory() as root:
             page = os.path.join(root, "work", "review", "index.html")

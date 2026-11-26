@@ -304,7 +304,7 @@ def save_frames(data, video, out_dir):
     frames = {}
     last_frame = None
     cmd = ["ffmpeg", "-v", "error", "-y"]
-    source = ["-i", video, "-map", "0:v:0"]
+    source = ["-i", video]
     image = ["-vf", "scale=540:-2", "-q:v", "4"]
     for i, c in enumerate(data.get("comments", [])):
         path = os.path.join(out_dir, f"{i + 1:02d}-{c['t']:.2f}.jpg")
