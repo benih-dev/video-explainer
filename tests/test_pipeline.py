@@ -211,6 +211,22 @@ Captions: off
                 common.parse_script(md)
             self.assertIn("line 4", str(cm.exception))
 
+    def test_nonfinite_scene_times_exit_with_line_number(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            md = os.path.join(tmp, "script.md")
+            for column in ("start", "end"):
+                for value in ("nan", "inf", "-inf", "1e999"):
+                    with self.subTest(column=column, value=value):
+                        start, end = (value, "2") if column == "start" else ("0", value)
+                        write_text(md, f"""## Scenes
+| id | start | end | visual |
+|---|---|---|---|
+| s01 | {start} | {end} | title: Hi ; Sub |
+""")
+                        with self.assertRaises(SystemExit) as cm:
+                            common.parse_script(md)
+                        self.assertIn(f"script.md line 4: {column} '{value}' must be finite", str(cm.exception))
+
     def test_parse_json_output_ignores_leading_brackets(self):
         raw = '[hyperframes] browserGpuMode probe -> hardware\n{\n  "ok": true,\n  "lint": {"errorCount": 0}\n}\n'
         obj = common.parse_json_output(raw, "check")
