@@ -3,7 +3,7 @@ frame, and clicks Send. The server persists notes and keeps playing; an agent po
 Keep this file identical everywhere it is bundled."""
 import html, json, os, re, subprocess, sys, threading, time, webbrowser, uuid
 from urllib.request import urlopen
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 CSS = """
@@ -101,7 +101,7 @@ const fmt = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, "0")
 const short = (id) => String(id).replace(/^s0+(?=\d)/, "s");
 const sceneAt = (t) => SCENES.find((s) => t >= s.start && t < s.end) || SCENES[SCENES.length - 1];
 const store = (k, val) => { try { if (val === undefined) return localStorage.getItem(k); localStorage.setItem(k, val); } catch {} };
-const KEY = "review:" + location.pathname;
+const KEY = "review:" + JSON.stringify([location.pathname, v.getAttribute("src")]);
 let state; try { state = JSON.parse(store(KEY)) || { comments: [] }; } catch { state = { comments: [] }; }
 state.overall = state.overall || "";
 const save = () => store(KEY, JSON.stringify(state));
@@ -283,11 +283,12 @@ def probe(video):
 def write_page(root, page, video, scenes):
     """Write the review page for video. scenes: [{id, start, end, layout, visual, spoken}] covering the whole video."""
     dur, fps = probe(video)
-    src = "/" + os.path.relpath(video, root) + f"?v={int(os.path.getmtime(video))}"
+    revision = os.stat(video).st_mtime_ns
+    src = "/" + os.path.relpath(video, root) + f"?v={revision}"
     os.makedirs(os.path.dirname(page), exist_ok=True)
     poster = os.path.join(os.path.dirname(page), "poster.jpg")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", video, "-frames:v", "1", "-q:v", "3", poster], check=True)
-    poster_src = "/" + os.path.relpath(poster, root) + f"?v={os.stat(video).st_mtime_ns}"
+    poster_src = "/" + os.path.relpath(poster, root) + f"?v={revision}"
     content = PAGE.format(css=CSS, js=JS, src=html.escape(src), poster=html.escape(poster_src), scenes=json.dumps(scenes), dur=dur, fps=fps)
     atomic_text(page, content)
 
@@ -526,7 +527,7 @@ def serve(root, page, feedback, scenes, video, port, open_browser, timeout, word
     existing = info.get("url", "")
     if existing.startswith("http://127.0.0.1:"):
         try:
-            health = json.load(urlopen(existing.split("/review/")[0] + "/api/health", timeout=1))
+            health = json.load(urlopen(urljoin(existing, "/api/health"), timeout=1))
             if health.get("work") == work:
                 print(f"Review page: {existing}\nReused running review server. Poll for feedback with --poll {work}", flush=True)
                 if open_browser:

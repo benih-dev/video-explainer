@@ -1,5 +1,5 @@
 """Unit and end-to-end integration tests for /video-explainer."""
-import json, os, subprocess, sys, tempfile, unittest
+import json, os, subprocess, sys, tempfile, threading, unittest
 from unittest import mock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -10,6 +10,7 @@ import common
 import media
 import qa
 import review
+import review_page
 import sfx
 
 
@@ -417,6 +418,88 @@ console.log("OK");
             _, ok_cap, det_cap = qa.motion_liveliness(fake_vid, 5.5)
             self.assertFalse(ok_cap, f"Caption-only motion should not fool motion_liveliness: {det_cap}")
             self.assertIn("FAIL", det_cap)
+
+
+class ReviewServerTests(unittest.TestCase):
+    def test_review_notes_are_scoped_to_the_video_revision(self):
+        with tempfile.TemporaryDirectory() as root:
+            page = os.path.join(root, "work", "review", "index.html")
+            video = os.path.join(root, "renders", "draft.mp4")
+            make_test_video(video, w=160, h=90, dur=1)
+            revision = os.stat(video).st_mtime_ns // 10**9 * 10**9
+            scenes = [{"id": "s01", "start": 0, "end": 1, "layout": "title"}]
+
+            def publish(mtime):
+                os.utime(video, ns=(mtime, mtime))
+                review_page.write_page(root, page, video, scenes)
+                return read_text(page)
+
+            first = publish(revision)
+            make_test_video(video, w=160, h=90, dur=1.25)
+            second = publish(revision + 100_000_000)
+
+            node_check = """
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const [first, second] = JSON.parse(fs.readFileSync(0, "utf8"));
+const localStorage = new Map();
+function open(page) {
+  const noop = () => {};
+  const element = () => ({value: "", dataset: {}, style: {}, appendChild: noop,
+    addEventListener: noop, blur: noop, getContext: noop, querySelector: element});
+  const elements = {};
+  const getElementById = (id) => elements[id] ||= element();
+  const video = getElementById("v");
+  video.getAttribute = (attr) => attr === "src" ? page.match(/<video[^>]* src="([^"]+)"/)[1] : null;
+  Object.assign(video, {currentTime: 0.5, paused: true});
+  vm.runInNewContext(page.split("<script>")[1].split("</script>")[0], {
+    document: {getElementById, createElement: element, documentElement: element(), querySelectorAll: () => []},
+    location: {pathname: "/work/review/index.html"},
+    localStorage: {getItem: (key) => localStorage.get(key), setItem: (key, value) => localStorage.set(key, value)},
+    window: {addEventListener: noop}, addEventListener: noop, requestAnimationFrame: noop, setInterval: noop,
+  });
+  return elements;
+}
+const original = open(first);
+original.note.value = "Frame note";
+original.add.onclick();
+original.overall.value = "Draft note";
+original.overall.oninput();
+const reloaded = open(first);
+assert.equal(reloaded.count.textContent, 1, "reload retains the frame note");
+assert.equal(reloaded.overall.value, "Draft note", "reload retains the overall note");
+const republished = open(second);
+assert.equal(republished.count.textContent, "", "new revision starts without frame notes");
+assert.equal(republished.overall.value, "", "new revision starts without an overall note");
+"""
+            result = subprocess.run(["node", "-e", node_check], input=json.dumps([first, second]),
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_republish_reuses_server_for_nested_review_page(self):
+        with tempfile.TemporaryDirectory() as root:
+            work = os.path.join(root, "work")
+            page = os.path.join(work, "review", "index.html")
+            feedback = os.path.join(work, "feedback.md")
+            first_video = os.path.join(root, "renders", "draft-1.mp4")
+            second_video = os.path.join(root, "renders", "draft-2.mp4")
+            write_text(page, "review page")
+            with review_page.build_server(root, page, feedback, [], first_video, 0) as server:
+                worker = threading.Thread(target=server.serve_forever)
+                worker.start()
+                try:
+                    info_path = os.path.join(work, "review-server.json")
+                    info = {"url": f"http://127.0.0.1:{server.server_port}/work/review/index.html", "pid": os.getpid()}
+                    write_text(info_path, json.dumps(info))
+
+                    review_page.serve(root, page, feedback, [], second_video, server.server_port, False, 0)
+
+                    self.assertEqual(json.loads(read_text(info_path)), info)
+                    self.assertEqual(json.loads(read_text(os.path.join(work, "review-context.json")))["video"], second_video)
+                finally:
+                    server.shutdown()
+                    worker.join()
 
 
 class EndToEndPipelineTests(unittest.TestCase):
