@@ -3,7 +3,7 @@ frame, and clicks Send. The server persists notes and keeps playing; an agent po
 Keep this file identical everywhere it is bundled."""
 import html, json, os, re, subprocess, sys, threading, time, webbrowser, uuid
 from urllib.request import urlopen
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 CSS = """
@@ -526,7 +526,7 @@ def serve(root, page, feedback, scenes, video, port, open_browser, timeout, word
     existing = info.get("url", "")
     if existing.startswith("http://127.0.0.1:"):
         try:
-            health = json.load(urlopen(existing.split("/review/")[0] + "/api/health", timeout=1))
+            health = json.load(urlopen(urljoin(existing, "/api/health"), timeout=1))
             if health.get("work") == work:
                 print(f"Review page: {existing}\nReused running review server. Poll for feedback with --poll {work}", flush=True)
                 if open_browser:

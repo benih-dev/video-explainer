@@ -1,5 +1,5 @@
 """Unit and end-to-end integration tests for /video-explainer."""
-import json, os, subprocess, sys, tempfile, unittest
+import json, os, subprocess, sys, tempfile, threading, unittest
 from unittest import mock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -10,6 +10,7 @@ import common
 import media
 import qa
 import review
+import review_page
 import sfx
 
 
@@ -417,6 +418,32 @@ console.log("OK");
             _, ok_cap, det_cap = qa.motion_liveliness(fake_vid, 5.5)
             self.assertFalse(ok_cap, f"Caption-only motion should not fool motion_liveliness: {det_cap}")
             self.assertIn("FAIL", det_cap)
+
+
+class ReviewServerTests(unittest.TestCase):
+    def test_republish_reuses_server_for_nested_review_page(self):
+        with tempfile.TemporaryDirectory() as root:
+            work = os.path.join(root, "work")
+            page = os.path.join(work, "review", "index.html")
+            feedback = os.path.join(work, "feedback.md")
+            first_video = os.path.join(root, "renders", "draft-1.mp4")
+            second_video = os.path.join(root, "renders", "draft-2.mp4")
+            write_text(page, "review page")
+            with review_page.build_server(root, page, feedback, [], first_video, 0) as server:
+                worker = threading.Thread(target=server.serve_forever)
+                worker.start()
+                try:
+                    info_path = os.path.join(work, "review-server.json")
+                    info = {"url": f"http://127.0.0.1:{server.server_port}/work/review/index.html", "pid": os.getpid()}
+                    write_text(info_path, json.dumps(info))
+
+                    review_page.serve(root, page, feedback, [], second_video, server.server_port, False, 0)
+
+                    self.assertEqual(json.loads(read_text(info_path)), info)
+                    self.assertEqual(json.loads(read_text(os.path.join(work, "review-context.json")))["video"], second_video)
+                finally:
+                    server.shutdown()
+                    worker.join()
 
 
 class EndToEndPipelineTests(unittest.TestCase):
